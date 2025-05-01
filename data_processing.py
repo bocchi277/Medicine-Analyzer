@@ -1,0 +1,157 @@
+import pandas as pd
+import logging
+from config import config # Assuming config.py exists and has DATA_PATH
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def load_and_preprocess_data():
+    """
+    Loads and preprocesses the drug data from the CSV file.
+
+    Ensures relevant text columns are treated as strings and handles potential
+    missing values for text combination and display. Avoids introducing
+    "Not Available" into the combined embedding text. Includes 'brand_name'
+    and 'synonyms' for potential search/display.
+    Removes the specific cleaning logic for the 'mechanism' column that replaced "TARGET".
+
+    Returns:
+        pd.DataFrame: The processed DataFrame ready for embedding and retrieval.
+
+    Raises:
+        FileNotFoundError: If the data file specified in config.DATA_PATH is not found.
+        Exception: For other errors during file loading or processing.
+        ValueError: If the processed DataFrame is empty or lacks critical columns.
+    """
+    logging.info(f"Attempting to load data from {config.DATA_PATH}")
+    try:
+        df = pd.read_csv(config.DATA_PATH)
+        logging.info("Data loaded successfully.")
+    except FileNotFoundError:
+        logging.error(f"Data file not found at {config.DATA_PATH}. Please ensure the file exists.")
+        raise # Re-raise the exception so the calling code knows loading failed
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while loading CSV from {config.DATA_PATH}: {e}")
+        raise # Re-raise the exception
+
+    logging.info(f"Initial data shape: {df.shape}")
+    logging.info(f"Initial columns: {df.columns.tolist()}")
+
+    # Define columns potentially useful for semantic meaning (for embedding)
+    # Includes synonyms as they contribute to understanding the drug
+    text_cols_for_embedding = [
+        'name', 'generic_name', 'groups', 'description', 'indication',
+        'mechanism', 'pharmacodynamics', 'background', 'drug_categories',
+        'synonyms'
+    ]
+    # Define columns to keep for retrieval and LLM context (for display/details)
+    # Includes brand_name as it's used for searching and display
+    cols_to_keep = [
+        'drug_id', 'name', 'generic_name', 'brand_name', 'indication', 'mechanism',
+        'metabolism', 'half_life', 'pharmacodynamics', 'routes_of_administration',
+        'protein_binding', 'description','synonyms', 'background' # Added synonyms here too for potential display
+    ]
+
+    # --- Data Cleaning and Type Conversion ---
+    logging.info("Starting data cleaning and type conversion...")
+
+    # Ensure 'drug_id' is present and handle potential non-numeric IDs if necessary
+    if 'drug_id' not in df.columns:
+         logging.error("Required column 'drug_id' not found in the data.")
+         raise ValueError("Data must contain a 'drug_id' column.")
+    # Attempt to convert drug_id to string to be safe
+    df['drug_id'] = df['drug_id'].astype(str)
+
+
+    # Process columns for embedding first: fill NaNs with empty strings and ensure string type
+    logging.info("Processing columns for embedding...")
+    existing_text_cols_for_embedding = [col for col in text_cols_for_embedding if col in df.columns]
+    for col in existing_text_cols_for_embedding:
+         # Use .fillna('') before .astype(str) to ensure NaNs become empty strings
+         df[col] = df[col].fillna("").astype(str)
+         logging.debug(f"Processed '{col}' for embedding: filled NaNs and converted to string.")
+
+    # Process columns to keep (that are not already processed for embedding):
+    # Fill NaNs with "Not Available" for display purposes and ensure string type
+    logging.info("Processing columns to keep for display...")
+    # Use set difference to get columns in cols_to_keep that are NOT in text_cols_for_embedding
+    cols_to_keep_only_display = [
+        col for col in set(cols_to_keep) - set(existing_text_cols_for_embedding)
+        if col in df.columns and col != 'drug_id'
+    ]
+    for col in cols_to_keep_only_display:
+         df[col] = df[col].fillna("Not Available").astype(str)
+         logging.debug(f"Processed '{col}' for display: filled NaNs with 'Not Available' and converted to string.")
+
+    # Handle any columns in text_cols_for_embedding or cols_to_keep that were missing initially
+    all_relevant_cols = list(set(text_cols_for_embedding + cols_to_keep))
+    for col in all_relevant_cols:
+        if col not in df.columns:
+            logging.warning(f"Column '{col}' not found in the loaded data. Adding with default values.")
+            # Add missing columns with default values appropriate for their intended use
+            if col in text_cols_for_embedding:
+                 df[col] = "" # Default for embedding text
+            elif col in cols_to_keep:
+                 df[col] = "Not Available" # Default for display text
+
+
+    # --- Removed the specific cleaning logic for 'mechanism' that replaced "TARGET" ---
+    # The general NaN handling above ensures 'mechanism' is a string with NaNs as ""
+    # If you need other specific cleaning for 'mechanism', add it here,
+    # but avoid replacing content with "" if you want the original text for embedding.
+    # For example, to just remove the word "TARGET" without replacing the whole string:
+    # if 'mechanism' in df.columns:
+    #     df['mechanism'] = df['mechanism'].str.replace("TARGET", "", regex=False).str.strip()
+    #     logging.info("Applied specific cleaning to 'mechanism' column: removed 'TARGET'.")
+    # --- End Removed Block ---
+
+
+    # Create the combined text for embedding
+    # Use the list of columns confirmed to exist and processed for embedding
+    if not existing_text_cols_for_embedding:
+         logging.error("No valid columns found for creating combined embedding text after processing.")
+         # This should ideally not happen if data loading was successful and columns were added
+         raise ValueError("Cannot create combined text without specified columns.")
+
+    logging.info(f"Creating combined embedding text from columns: {existing_text_cols_for_embedding}")
+    # Use .agg(' '.join) which automatically handles empty strings correctly
+    df['combined_embedding_text'] = df[existing_text_cols_for_embedding].agg(' '.join, axis=1)
+    logging.info("Combined embedding text created.")
+
+    # --- Final DataFrame Preparation ---
+    # Select and return relevant data
+    # Ensure all cols_to_keep and necessary embedding cols ('drug_id', 'combined_embedding_text') are included
+    final_cols = list(set(['drug_id', 'combined_embedding_text'] + cols_to_keep))
+    # Filter final_cols to only include columns that exist in the DataFrame
+    final_cols_existing = [col for col in final_cols if col in df.columns]
+
+    # Ensure 'combined_embedding_text' is always included if it was created
+    if 'combined_embedding_text' not in final_cols_existing and 'combined_embedding_text' in df.columns:
+         final_cols_existing.append('combined_embedding_text')
+
+    df_processed = df[final_cols_existing].copy()
+
+    # Ensure unique drug_id - handle duplicates if necessary
+    initial_rows = df_processed.shape[0]
+    df_processed.drop_duplicates(subset=['drug_id'], keep='first', inplace=True)
+    if df_processed.shape[0] < initial_rows:
+        logging.warning(f"Removed {initial_rows - df_processed.shape[0]} duplicate 'drug_id' entries.")
+
+    # Set index for easy lookup by drug_id in the API
+    df_processed.set_index('drug_id', inplace=True, drop=False)
+
+    logging.info(f"Processed data shape: {df_processed.shape}")
+    if df_processed.empty:
+        logging.error("Processed DataFrame is empty after cleaning. Check input data and filters.")
+        raise ValueError("No data available after processing.")
+
+    logging.info("Data preprocessing complete.")
+    return df_processed
+
+# Example of how you might call this function in your main app file:
+# try:
+#     drug_data_df = load_and_preprocess_data()
+# except Exception as e:
+#     logging.critical(f"Failed to load and preprocess data: {e}")
+#     # Handle the error appropriately, maybe exit or disable API functionality
+#     drug_data_df = pd.DataFrame() # Ensure drug_data_df is defined even on error
+#     # Depending on severity, you might want to sys.exit(1) here
