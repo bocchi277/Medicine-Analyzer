@@ -1,10 +1,11 @@
+from functools import wraps
 from flask import Blueprint, request, jsonify
 import logging
-import numpy as np # Import numpy
-from llm_service import get_best_alternative_from_llm # Use absolute import
-from vector_store import search_similar # Use absolute import
-import pandas as pd # Import pandas for DataFrame operations
-from sklearn.metrics.pairwise import cosine_similarity # Import for similarity comparison
+import numpy as np
+from llm_service import get_best_alternative_from_llm
+from vector_store import search_similar
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Ensure logging is configured to show INFO level or higher
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,34 +13,153 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Create a Blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# These would be passed during app creation/initialization
-# Global or passed via app context is okay for this scale, dependency injection frameworks are better for large apps
+# Global resources
 sbert_model = None
 faiss_index = None
 faiss_id_map = None
-drug_data = None # The full processed DataFrame
+drug_data = None
+# Store preprocessed lowercased column names for efficient searching
+search_columns = {}
 
 def init_api(model, index, id_map, data_df):
-    """Initialize globals needed by the API routes."""
-    global sbert_model, faiss_index, faiss_id_map, drug_data
+    """Initialize API resources with preprocessed data."""
+    global sbert_model, faiss_index, faiss_id_map, drug_data, search_columns
+
     sbert_model = model
     faiss_index = index
     faiss_id_map = id_map
-    logging.info("API resources initialized.")
-    # IMPORTANT: Ensure drug_data is not None and has expected columns after init
+    search_columns.clear() # Clear previous search columns if re-initializing
+
     if data_df is None or data_df.empty:
-        logging.error("Data DataFrame is None or empty after initialization!")
-        drug_data = pd.DataFrame() # Ensure it's a DataFrame even if empty
+        logging.error("Initialization failed: Empty DataFrame provided.")
+        drug_data = pd.DataFrame() # Ensure drug_data is a DataFrame even if empty
+        return
+
+    drug_data = data_df.copy() # Work on a copy to avoid modifying the original DataFrame passed in
+    logging.info(f"API initializing with data shape: {drug_data.shape}")
+
+    if 'drug_id' not in drug_data.columns:
+        logging.error("Initialization failed: DataFrame must contain 'drug_id' column.")
+        # Decide if you want to raise an error or just log and return empty data
+        drug_data = pd.DataFrame() # Reset to empty if critical column is missing
+        return # Stop initialization if drug_id is missing
+
+    # Set drug_id as index for efficient lookup using .loc
+    try:
+        drug_data.set_index('drug_id', inplace=True, drop=False) # Keep drug_id as a column too
+        logging.info("Set 'drug_id' as DataFrame index.")
+    except Exception as e:
+        logging.error(f"Error setting 'drug_id' as index: {e}")
+        # Handle potential issues if drug_id is not unique or has problematic values
+        drug_data = pd.DataFrame() # Reset if index setting fails critically
+        return
+
+
+    # Preprocess search columns by creating lowercased versions
+    search_columns['main'] = []
+    cols_to_lowercase = ['name', 'generic_name', 'brand_name']
+    for col in cols_to_lowercase:
+        if col in drug_data.columns:
+            # Ensure column is string type before lowercasing
+            if pd.api.types.is_string_dtype(drug_data[col]):
+                 drug_data[f'{col}_lower'] = drug_data[col].str.lower().fillna("") # Fill NaN with empty string for safety
+                 search_columns['main'].append(f'{col}_lower')
+                 logging.debug(f"Created lowercased column: {col}_lower")
+            else:
+                 logging.warning(f"Column '{col}' is not string dtype ({drug_data[col].dtype}), skipping lowercasing for search.")
+
+    if 'synonyms' in drug_data.columns:
+        if pd.api.types.is_string_dtype(drug_data['synonyms']):
+             drug_data['synonyms_lower'] = drug_data['synonyms'].str.lower().fillna("") # Fill NaN with empty string
+             search_columns['synonyms'] = 'synonyms_lower'
+             logging.debug("Created lowercased column: synonyms_lower")
+        else:
+             logging.warning("Column 'synonyms' is not string dtype, skipping lowercasing for search.")
+
+    # --- DEBUG LOGGING: Check for smiles column during init ---
+    if 'smiles' in drug_data.columns:
+        logging.info("API initialized: 'smiles' column FOUND in drug_data.")
     else:
-        drug_data = data_df
-        logging.info(f"API initialized with data shape: {drug_data.shape}")
-        logging.info(f"API initialized with data columns: {drug_data.columns.tolist()}")
+        logging.warning("API initialized: 'smiles' column NOT FOUND in drug_data. Smiles will not be available in responses.")
+    # --- END DEBUG LOGGING ---
 
 
-def _find_drug_by_name(medicine_name: str):
+    logging.info(f"API initialized successfully with {len(drug_data)} entries.")
+    logging.info(f"Available search columns: {search_columns}")
+    # Log columns in the initialized data
+    logging.info(f"Initialized drug_data columns: {drug_data.columns.tolist()}")
+
+
+def check_resources(*required_cols):
     """
-    Helper function to find a drug in the DataFrame by name, generic name,
-    brand name, or synonym (case-insensitive).
+    Decorator to validate API resources (data, models) and required data columns.
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            error = None
+            if drug_data is None or drug_data.empty:
+                error = 'Drug data not loaded or is empty. Service unavailable.'
+            elif not all(col in drug_data.columns for col in required_cols):
+                missing = [col for col in required_cols if col not in drug_data.columns]
+                error = f'Required data columns missing: {missing}. Service unavailable.'
+            # Check only models needed for all routes decorated with check_resources
+            # If a route needs a specific model (like sbert), check within the route or use a more specific decorator
+            # For now, let's assume sbert is always needed if combined_embedding_text is required
+            if 'combined_embedding_text' in required_cols and sbert_model is None:
+                 error = 'SBERT model not loaded. Service unavailable.'
+            # Add checks for faiss_index and faiss_id_map if needed by the route
+            if 'combined_embedding_text' in required_cols and (faiss_index is None or faiss_id_map is None):
+                 error = 'FAISS index or ID map not loaded. Service unavailable.'
+
+
+            if error:
+                logging.error(f"Resource check failed for route {request.path}: {error}")
+                return jsonify({'error': error}), 503 # Service Unavailable
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def prepare_drug_response(drug_row: pd.Series):
+    """
+    Prepare a drug record (Pandas Series row) for API response.
+    Excludes internal/embedding columns and includes smiles if available.
+    NOTE: This function assumes the input drug_row Series contains the
+          columns needed for the response, including 'smiles' if it
+          is expected to be returned.
+    """
+    if not isinstance(drug_row, pd.Series):
+        logging.error(f"prepare_drug_response received invalid type: {type(drug_row)}")
+        return {} # Return empty dict for invalid input
+
+    # Start with the full dictionary representation of the row
+    response = drug_row.to_dict()
+
+    # Exclude internal/embedding columns
+    response.pop('combined_embedding_text', None)
+    # Exclude lowercased search columns
+    for col in search_columns.get('main', []):
+        response.pop(col, None)
+    if 'synonyms' in search_columns:
+         response.pop(search_columns['synonyms'], None)
+
+    # --- Explicitly handle smiles ---
+    # Check if 'smiles' column exists in the original Series AND its value is not NaN
+    if 'smiles' in drug_row.index and pd.notna(drug_row.loc['smiles']):
+         response['smiles'] = drug_row.loc['smiles'] # Add smiles to the response dictionary
+         # Ensure it wasn't accidentally removed by a pop if its name was similar
+         # (Unlikely, but defensive)
+    else:
+         # If smiles is NaN or not in the original row index, ensure it's not in the response
+         response.pop('smiles', None) # Remove if it somehow got in or was NaN
+
+
+    return response
+
+def find_drug(medicine_name: str):
+    """
+    Efficient drug lookup in the global drug_data DataFrame
+    using preprocessed lowercased columns.
 
     Args:
         medicine_name (str): The name to search for.
@@ -48,350 +168,280 @@ def _find_drug_by_name(medicine_name: str):
         pd.Series or None: The DataFrame row for the found drug, or None if not found.
     """
     if drug_data is None or drug_data.empty:
-        logging.error("_find_drug_by_name called before drug_data is initialized.")
+        logging.error("find_drug called before drug_data is initialized.")
         return None
 
-    # Case-insensitive search across name, generic_name, brand_name, and synonyms
-    search_cols = ['name', 'generic_name']
-    if 'brand_name' in drug_data.columns:
-        search_cols.append('brand_name')
-    if 'synonyms' in drug_data.columns:
-        search_cols.append('synonyms')
+    name_lower = medicine_name.lower()
+    # Initialize mask with False for all rows
+    mask = pd.Series(False, index=drug_data.index)
 
-    search_condition = pd.Series([False] * len(drug_data), index=drug_data.index)
-    input_name_lower = medicine_name.lower()
-
-    for col in search_cols:
-        if col in drug_data.columns and pd.api.types.is_string_dtype(drug_data[col]):
-            if col in ['name', 'generic_name', 'brand_name']:
-                current_col_condition = (drug_data[col].str.lower() == input_name_lower)
-                search_condition = search_condition | current_col_condition
-            elif col == 'synonyms':
-                current_col_condition = (drug_data[col].str.lower().str.contains(input_name_lower, na=False))
-                search_condition = search_condition | current_col_condition
-
-    target_drug_series = drug_data[search_condition]
-
-    if target_drug_series.empty:
-        return None # Drug not found
-
-    # Return the first match if multiple are found
-    return target_drug_series.iloc[0]
+    # Search main columns (name, generic_name, brand_name)
+    for col_lower in search_columns.get('main', []):
+         # Ensure the lowercased column exists before using it
+         if col_lower in drug_data.columns:
+              mask |= (drug_data[col_lower] == name_lower)
+         else:
+              logging.warning(f"Lowercase search column '{col_lower}' not found in drug_data.")
 
 
-# --- Existing Route: Get Alternative ---
+    # Search synonyms column
+    syn_col_lower = search_columns.get('synonyms')
+    if syn_col_lower and syn_col_lower in drug_data.columns:
+         # Use .str.contains with na=False to handle empty/NaN synonyms safely
+         mask |= drug_data[syn_col_lower].str.contains(name_lower, na=False)
+    elif syn_col_lower:
+         logging.warning(f"Lowercase synonyms column '{syn_col_lower}' not found in drug_data.")
+
+
+    # Filter the DataFrame using the mask
+    results = drug_data[mask]
+
+    # Return the first matching row if any results are found
+    return results.iloc[0] if not results.empty else None
+
+
 @api_bp.route('/get_alternative', methods=['GET'])
+# Require combined_embedding_text as it's needed for embedding and search
+@check_resources('combined_embedding_text')
 def get_alternative_route():
     """
     API endpoint to find similar drugs and the best alternative.
     Allows searching by medicine name, generic name, brand name, or synonym.
+    Includes similarity percentage in the response and smiles for the target drug.
     """
     medicine_name = request.args.get('name')
     if not medicine_name:
         logging.warning("Missing 'name' parameter in /get_alternative request.")
-        return jsonify({'error': 'Please provide a medicine name parameter (e.g., /api/get_alternative?name=Aspirin)'}), 400
-
-    # Check if resources are initialized
-    required_cols = ['drug_id', 'name', 'generic_name', 'combined_embedding_text']
-    if drug_data is None or drug_data.empty or not all(col in drug_data.columns for col in required_cols) or sbert_model is None or faiss_index is None or faiss_id_map is None:
-         logging.error("/get_alternative: API resources not initialized properly or missing critical data columns.")
-         logging.error(f"Data initialized: {drug_data is not None and not drug_data.empty}. Missing cols: {[col for col in required_cols if drug_data is not None and col not in drug_data.columns] if drug_data is not None else 'Data is None'}")
-         return jsonify({'error': 'Server not ready, resources not loaded or data incomplete'}), 503 # Service Unavailable
-
+        return jsonify({'error': 'Please provide a medicine name parameter'}), 400
 
     logging.info(f"Received /get_alternative request for: {medicine_name}")
 
-    # --- Step 1: Find the target drug using the helper function ---
     try:
-        target_drug_info = _find_drug_by_name(medicine_name)
-
-        if target_drug_info is None:
+        # --- Step 1: Find the target drug ---
+        target = find_drug(medicine_name)
+        if target is None:
             logging.warning(f"/get_alternative: Medicine not found in dataset: {medicine_name}")
             return jsonify({'error': f"Medicine '{medicine_name}' not found. Please check the spelling or try a different name."}), 404
 
-        target_drug_id = target_drug_info['drug_id']
-        # Ensure 'combined_embedding_text' exists and is used for embedding
-        if 'combined_embedding_text' not in target_drug_info or pd.isna(target_drug_info['combined_embedding_text']) or target_drug_info['combined_embedding_text'] == "":
-             logging.error(f"/get_alternative: 'combined_embedding_text' is missing or empty for target drug ID {target_drug_id}. Check data processing.")
+        # Ensure target drug has embedding text
+        if pd.isna(target.get('combined_embedding_text')) or target.get('combined_embedding_text') == "":
+             logging.error(f"/get_alternative: Embedding text missing or empty for target drug ID {target.name}. Check data processing.")
              return jsonify({'error': 'Internal server error: Embedding text missing for target drug.'}), 500
 
-        target_text = target_drug_info['combined_embedding_text']
-        logging.debug(f"/get_alternative: Target embedding text: {target_text[:100]}...") # Log first 100 chars
-
-        # Generate embedding for the target drug
+        # --- Step 2: Generate embedding and search FAISS ---
+        logging.info(f"/get_alternative: Generating embedding and searching FAISS for: {target.get('name', 'N/A')}")
+        # Ensure sbert_model is available (checked by decorator, but defensive check)
         if sbert_model is None:
-             logging.error("/get_alternative: SBERT model is not initialized.")
-             return jsonify({'error': 'Internal server error: Embedding model not loaded.'}), 500
+             logging.error("/get_alternative: SBERT model is unexpectedly None.")
+             return jsonify({'error': 'Internal server error: Embedding model not loaded.'}), 503 # Should be caught by decorator
 
-        logging.info("/get_alternative: Generating embedding for target drug.")
-        query_embedding = sbert_model.encode(target_text, convert_to_numpy=True)
-        if query_embedding is None or not isinstance(query_embedding, np.ndarray) or query_embedding.size == 0:
+        embedding = sbert_model.encode(target.combined_embedding_text, convert_to_numpy=True)
+        if embedding is None or not isinstance(embedding, np.ndarray) or embedding.size == 0:
              raise ValueError("Failed to generate a valid numpy embedding for the query drug.")
-        logging.info(f"/get_alternative: Embedding generated with shape: {query_embedding.shape}")
+        logging.debug(f"/get_alternative: Embedding generated with shape: {embedding.shape}")
+
+        # Ensure FAISS resources are available (checked by decorator)
+        if faiss_index is None or faiss_id_map is None:
+             logging.error("/get_alternative: FAISS resources are unexpectedly None.")
+             return jsonify({'error': 'Internal server error: Search index not loaded.'}), 503 # Should be caught by decorator
 
 
-    except Exception as e:
-        logging.error(f"/get_alternative: Error finding target drug or generating embedding for '{medicine_name}': {e}", exc_info=True) # Log traceback
-        return jsonify({'error': f"An internal error occurred while processing the request for '{medicine_name}'. Details logged on server."}), 500
+        # search_similar function needs to return a list of dicts with 'drug_id' and 'similarity_score'
+        logging.info("Calling search_similar with top_n=10")
+        similar_indices_scores = search_similar(embedding, faiss_index, faiss_id_map, top_n=10)
 
-
-    # --- Step 2: Find similar medicines using FAISS ---
-    logging.info(f"/get_alternative: Searching FAISS index for drugs similar to {target_drug_info['name']} (ID: {target_drug_id})")
-    if faiss_index is None or faiss_id_map is None:
-         logging.error("/get_alternative: FAISS index or ID map is not initialized.")
-         return jsonify({'error': 'Internal server error: Search index not loaded.'}), 503 # Use 503 as it's a server resource issue
-
-    try:
-        # search_similar function should handle the FAISS search and mapping
-        # Use a reasonable top_n here
-        logging.info("Calling search_similar with top_n=10") # Reverted top_n to a more typical value
-        similar_indices_scores = search_similar(query_embedding, faiss_index, faiss_id_map, top_n=10)
-
-        # --- DEBUG LOGGING ---
         logging.info(f"/get_alternative: search_similar returned {len(similar_indices_scores)} results.")
         if similar_indices_scores:
-             logging.info(f"/get_alternative: Top 5 results from search_similar: {similar_indices_scores[:5]}")
+             logging.debug(f"/get_alternative: Top 5 results from search_similar: {similar_indices_scores[:5]}")
         else:
-             logging.info("/get_alternative: search_similar returned an empty list.")
-        # --- END DEBUG LOGGING ---
+             logging.debug("/get_alternative: search_similar returned an empty list.")
 
 
-    except Exception as e:
-         logging.error(f"/get_alternative: Error during FAISS search: {e}", exc_info=True) # Log traceback
-         return jsonify({'error': 'Internal server error during similarity search.'}), 500
+        # --- Step 3: Process search results, filter target, retrieve details, add scores ---
+        # Create a dictionary mapping drug_id to its similarity score for easy lookup
+        similar_drugs_with_scores = {
+            res['drug_id']: res['similarity_score']
+            for res in similar_indices_scores
+            # Filter out the target drug itself. Use target.name (which is the index/drug_id)
+            if 'drug_id' in res and res['drug_id'] != target.name
+        }
+
+        similar_drug_ids = list(similar_drugs_with_scores.keys())
+
+        logging.info(f"/get_alternative: After filtering target drug (ID: {target.name}), {len(similar_drug_ids)} similar drug IDs remain.")
+        if similar_drug_ids:
+             logging.debug(f"/get_alternative: Filtered similar drug IDs with scores: {similar_drugs_with_scores}")
 
 
-    if not similar_indices_scores:
-        logging.warning(f"/get_alternative: No similar drugs found in the index for {target_drug_info['name']} within top_n.")
-        # Prepare target drug dict, excluding embedding text
-        target_drug_dict = target_drug_info.to_dict()
-        if 'combined_embedding_text' in target_drug_dict:
-            del target_drug_dict['combined_embedding_text']
-            logging.debug("/get_alternative: Removed 'combined_embedding_text' from target_drug in response.")
-
-        return jsonify({
-            'target_drug': target_drug_dict,
-            'similar_medicines': [], # Explicitly empty list
-            'best_alternative_recommendation': 'No similar drugs found in the index based on the search criteria.'
-        }), 200
+        if not similar_drug_ids:
+             logging.warning(f"/get_alternative: No distinct similar drugs found for {target.get('name', 'N/A')} after filtering.")
+             return jsonify({
+                 'target': prepare_drug_response(target), # Use prepare_drug_response for the target
+                 'similar': [], # Explicitly empty list
+                 'recommendation': 'The search found the target medicine but no other distinct similar drugs in the index within the top results.'
+             }), 200
 
 
-    # --- Step 3: Retrieve details for similar medicines ---
-    # Extract drug_ids from the search results
-    similar_drug_ids_from_search = [res['drug_id'] for res in similar_indices_scores]
-
-    # Filter out the target drug itself from the list of similar drugs
-    # This assumes search_similar returns the target drug as the top result with score near 1
-    # We keep the explicit ID check for robustness
-    similar_drug_ids = [id for id in similar_drug_ids_from_search if id != target_drug_id]
-
-    # --- DEBUG LOGGING ---
-    logging.info(f"/get_alternative: After filtering target drug (ID: {target_drug_id}), {len(similar_drug_ids)} similar drug IDs remain.")
-    if similar_drug_ids_from_search:
-        logging.info(f"/get_alternative: Original IDs from search_similar: {similar_drug_ids_from_search[:5]}")
-    if similar_drug_ids:
-        logging.info(f"/get_alternative: Filtered similar drug IDs: {similar_drug_ids[:5]}")
-    # --- END DEBUG LOGGING ---
-
-
-    if not similar_drug_ids:
-         logging.warning(f"/get_alternative: Only the target drug itself was found as similar for {target_drug_info['name']} after filtering.")
-         # Prepare target drug dict, excluding embedding text
-         target_drug_dict = target_drug_info.to_dict()
-         if 'combined_embedding_text' in target_drug_dict:
-             del target_drug_dict['combined_embedding_text']
-             logging.debug("/get_alternative: Removed 'combined_embedding_text' from target_drug in response.")
-
-         return jsonify({
-             'target_drug': target_drug_dict,
-             'similar_medicines': [], # Explicitly empty list
-             'best_alternative_recommendation': 'The search found the target medicine but no other distinct similar drugs in the index within the top results.'
-         }), 200
-
-
-    try:
-        # Retrieve full data for the similar drugs using their IDs from the main drug_data DataFrame
-        # Use .loc for index-based lookup
-        # Ensure the IDs in similar_drug_ids actually exist in the DataFrame index
+        # Retrieve full data for the similar drugs using their IDs
+        # Use .loc for index-based lookup, ensuring IDs exist in the index
         existing_similar_drug_ids = [id for id in similar_drug_ids if id in drug_data.index]
         if len(existing_similar_drug_ids) < len(similar_drug_ids):
              logging.warning(f"/get_alternative: Some similar drug IDs ({len(similar_drug_ids) - len(existing_similar_drug_ids)}) found by FAISS/mapping were not found in the main drug_data DataFrame index.")
 
         if not existing_similar_drug_ids:
              logging.warning("/get_alternative: No valid similar drug IDs found in the main data after filtering and index check.")
-             # Prepare target drug dict, excluding embedding text
-             target_drug_dict = target_drug_info.to_dict()
-             if 'combined_embedding_text' in target_drug_dict:
-                 del target_drug_dict['combined_embedding_text']
-                 logging.debug("/get_alternative: Removed 'combined_embedding_text' from target_drug in response.")
-
              return jsonify({
-                 'target_drug': target_drug_dict,
-                 'similar_medicines': [], # Explicitly empty list
-                 'best_alternative_recommendation': 'Similar drugs were identified by the search index, but their details could not be retrieved from the data.'
+                 'target': prepare_drug_response(target), # Use prepare_drug_response for the target
+                 'similar': [], # Explicitly empty list
+                 'recommendation': 'Similar drugs were identified by the search index, but their details could not be retrieved from the data.'
              }), 200
 
+        # Retrieve the DataFrame rows for the existing similar drug IDs
+        similar_df = drug_data.loc[existing_similar_drug_ids]
 
-        similar_drugs_df = drug_data.loc[existing_similar_drug_ids]
+        # Prepare lists for LLM and response
+        similar_meds_details = []
+        similar_meds_summary = []
 
-        # Convert to list of dictionaries for LLM and response
-        similar_meds_details = similar_drugs_df.to_dict(orient='records')
+        # Iterate through the similar_drug_ids (which have corresponding scores)
+        for drug_id in similar_drug_ids:
+            # Ensure the drug_id exists in the retrieved similar_df (it should if it's in existing_similar_drug_ids)
+            if drug_id in similar_df.index:
+                row = similar_df.loc[drug_id] # Get the row using .loc with the drug_id
+                similarity_score = similar_drugs_with_scores[drug_id] # Get the score from the scores dict
+                similarity_percentage = round(float(similarity_score) * 100, 2) # Calculate percentage
 
-        # Prepare a summary list for the response (subset of columns)
-        summary_cols = ['drug_id', 'name', 'generic_name', 'indication', 'mechanism', 'brand_name', 'synonyms'] # Added brand_name, synonyms
-        # Filter for columns that actually exist in the DataFrame
-        existing_summary_cols = [col for col in summary_cols if col in similar_drugs_df.columns]
+                # Prepare full details for LLM (using prepare_drug_response to exclude embedding text etc.)
+                # LLM might benefit from smiles, so let prepare_drug_response handle its inclusion
+                full_details = prepare_drug_response(row)
+                similar_meds_details.append(full_details)
 
-        similar_meds_summary = similar_drugs_df[existing_summary_cols].to_dict(orient='records')
+                # Prepare summary details for response (using prepare_drug_response and adding percentage)
+                summary_dict = prepare_drug_response(row)
+                summary_dict['similarity_percentage'] = similarity_percentage
+                # If you want smiles in the similar summary list, uncomment below:
+                # if 'smiles' in row.index and pd.notna(row.loc['smiles']):
+                #      summary_dict['smiles'] = row.loc['smiles']
+                similar_meds_summary.append(summary_dict)
+            else:
+                logging.warning(f"Drug ID {drug_id} found in similar_drug_ids but not in retrieved similar_df. Skipping.")
 
-        logging.info(f"/get_alternative: Retrieved details for {len(similar_meds_details)} similar drugs.")
+
+        logging.info(f"/get_alternative: Prepared details and added similarity scores for {len(similar_meds_summary)} similar drugs.")
 
 
-    except KeyError as e:
-         logging.error(f"/get_alternative: KeyError retrieving details for similar drugs (missing drug_id in index?): {e}", exc_info=True) # Log traceback
-         return jsonify({'error': 'Internal server error: Mismatch in drug IDs during detail retrieval.'}), 500
+        # --- Step 4: Use LLM to determine the best alternative ---
+        logging.info(f"/get_alternative: Querying LLM for best alternative among {len(similar_meds_details)} options.")
+        # Pass the target drug details and the list of similar drug details to the LLM service
+        # Use prepare_drug_response for the target drug details sent to the LLM
+        target_drug_dict_for_llm = prepare_drug_response(target)
+
+        try:
+            recommendation = get_best_alternative_from_llm(target_drug_dict_for_llm, similar_meds_details)
+            logging.info("/get_alternative: LLM call completed.")
+        except Exception as e:
+            logging.error(f"/get_alternative: Error calling LLM service: {e}", exc_info=True)
+            # Return partial result (similar drugs) with an error message in the recommendation field
+            return jsonify({
+                'target': prepare_drug_response(target), # Use prepare_drug_response for the target in the response
+                'similar': similar_meds_summary, # Return the summary list with percentages
+                'recommendation': f'Could not generate a specific recommendation (LLM service error: {type(e).__name__}).'
+            }), 500 # Or 200 with an error message
+
+
+        # --- Step 5: Return the final response ---
+        logging.info("/get_alternative: Returning final response.")
+        return jsonify({
+            'target': prepare_drug_response(target), # Use prepare_drug_response for the target in the response (includes smiles if available)
+            'similar': similar_meds_summary, # Return the summary list with percentages
+            'recommendation': recommendation
+        })
+
     except Exception as e:
-         logging.error(f"/get_alternative: Error retrieving details for similar drugs: {e}", exc_info=True) # Log traceback
-         return jsonify({'error': 'Internal server error retrieving similar drug details'}), 500
+        logging.error(f"Error in /get_alternative route: {str(e)}", exc_info=True)
+        # Catch any unexpected errors and return a generic 500
+        return jsonify({'error': 'Internal server error processing request.'}), 500
 
-    # --- Step 4: Use LLM to determine the best alternative ---
-    logging.info(f"/get_alternative: Querying LLM for best alternative among {len(similar_meds_details)} options.")
-    target_drug_dict_for_llm = target_drug_info.to_dict() # Use the full dict for the LLM
-    try:
-        best_alternative_reasoning = get_best_alternative_from_llm(target_drug_dict_for_llm, similar_meds_details)
-        logging.info("/get_alternative: LLM call completed.")
-    except Exception as e:
-         logging.error(f"/get_alternative: Error calling LLM service: {e}", exc_info=True) # Log traceback
-         # Prepare target drug dict for response, excluding embedding text
-         target_drug_dict_for_response = target_drug_info.to_dict()
-         if 'combined_embedding_text' in target_drug_dict_for_response:
-             del target_drug_dict_for_response['combined_embedding_text']
-             logging.debug("/get_alternative: Removed 'combined_embedding_text' from target_drug in response due to LLM error.")
-
-         return jsonify({
-             'target_drug': target_drug_dict_for_response,
-             'similar_medicines': similar_meds_summary,
-             'best_alternative_recommendation': f'Could not generate a specific recommendation (LLM service error: {e})'
-         }), 500 # Or 200 with an error message in the recommendation field
-
-
-    # --- Step 5: Return the response ---
-    logging.info("/get_alternative: Returning final response.")
-    # Prepare target drug dict for response, excluding embedding text
-    target_drug_dict_for_response = target_drug_info.to_dict()
-    if 'combined_embedding_text' in target_drug_dict_for_response:
-        del target_drug_dict_for_response['combined_embedding_text']
-        logging.debug("/get_alternative: Removed 'combined_embedding_text' from target_drug in final response.")
-
-    return jsonify({
-        'target_drug': target_drug_dict_for_response, # Return richer info about target (without embedding text)
-        'similar_medicines': similar_meds_summary, # Return summary list
-        'best_alternative_recommendation': best_alternative_reasoning
-    })
-
-
-# --- New Route: Get Drug Details ---
 @api_bp.route('/drug_details', methods=['GET'])
+# No specific columns required other than those needed for lookup (handled by find_drug)
+@check_resources()
 def get_drug_details_route():
     """
     API endpoint to get full details for a single drug, excluding embedding text.
     Searches by medicine name, generic name, brand name, or synonym.
+    Includes smiles if available.
     """
     medicine_name = request.args.get('name')
     if not medicine_name:
         logging.warning("Missing 'name' parameter in /drug_details request.")
-        return jsonify({'error': 'Please provide a medicine name parameter (e.g., /api/drug_details?name=Aspirin)'}), 400
-
-    # Check if drug_data is initialized
-    if drug_data is None or drug_data.empty:
-         logging.error("/drug_details: Data DataFrame is not initialized.")
-         return jsonify({'error': 'Server not ready, data not loaded'}), 503 # Service Unavailable
+        return jsonify({'error': 'Please provide a medicine name parameter'}), 400
 
     logging.info(f"Received /drug_details request for: {medicine_name}")
 
     try:
-        # Use the helper function to find the drug
-        target_drug_info = _find_drug_by_name(medicine_name)
+        drug = find_drug(medicine_name)
+        if drug is None:
+             logging.warning(f"/drug_details: Drug not found: {medicine_name}")
+             return jsonify({'error': f"Drug '{medicine_name}' not found."}), 404
 
-        if target_drug_info is None:
-            logging.warning(f"/drug_details: Medicine not found in dataset: {medicine_name}")
-            return jsonify({'error': f"Medicine '{medicine_name}' not found."}), 404
-
-        # Convert the Series to a dictionary
-        drug_details_dict = target_drug_info.to_dict()
-
-        # --- EXCLUDE combined_embedding_text ---
-        if 'combined_embedding_text' in drug_details_dict:
-            del drug_details_dict['combined_embedding_text']
-            logging.debug("/drug_details: Removed 'combined_embedding_text' from response.")
-        # --- End Exclusion ---
-
-
-        # Return the modified dictionary as a JSON response
-        logging.info(f"/drug_details: Found drug '{drug_details_dict.get('name', 'N/A')}' (ID: {drug_details_dict.get('drug_id', 'N/A')}). Returning details.")
-        return jsonify(drug_details_dict), 200
+        # Use prepare_drug_response to format the output (includes smiles if available)
+        response_data = prepare_drug_response(drug)
+        logging.info(f"/drug_details: Found drug '{response_data.get('name', 'N/A')}' (ID: {response_data.get('drug_id', 'N/A')}). Returning details.")
+        return jsonify(response_data), 200
 
     except Exception as e:
-        logging.error(f"/drug_details: Error retrieving details for '{medicine_name}': {e}", exc_info=True)
-        return jsonify({'error': f"An internal error occurred while retrieving details for '{medicine_name}'."}), 500
+        logging.error(f"Error in /drug_details route for '{medicine_name}': {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error retrieving drug details.'}), 500
 
-
-# --- New Route: Compare Medicines ---
 @api_bp.route('/compare_medicines', methods=['GET'])
+# Require combined_embedding_text for generating embeddings for comparison
+@check_resources('combined_embedding_text')
 def compare_medicines_route():
     """
     API endpoint to compare the similarity of two medicines.
     Compares based on their embeddings.
+    Includes smiles for both drugs if available.
     """
     name1 = request.args.get('name1')
     name2 = request.args.get('name2')
-
     if not name1 or not name2:
         logging.warning("Missing 'name1' or 'name2' parameter in /compare_medicines request.")
-        return jsonify({'error': 'Please provide both name1 and name2 parameters (e.g., /api/compare_medicines?name1=Aspirin&name2=Ibuprofen)'}), 400
-
-    # Check if resources are initialized
-    required_cols = ['drug_id', 'name', 'combined_embedding_text'] # Need name and embedding text
-    if drug_data is None or drug_data.empty or not all(col in drug_data.columns for col in required_cols) or sbert_model is None:
-         logging.error("/compare_medicines: API resources not initialized properly or missing critical data columns.")
-         logging.error(f"Data initialized: {drug_data is not None and not drug_data.empty}. Missing cols: {[col for col in required_cols if drug_data is not None and col not in drug_data.columns] if drug_data is not None else 'Data is None'}")
-         logging.error(f"SBERT model initialized: {sbert_model is not None}")
-         return jsonify({'error': 'Server not ready, resources not loaded or data incomplete'}), 503 # Service Unavailable
+        return jsonify({'error': 'Please provide both name1 and name2 parameters'}), 400
 
     logging.info(f"Received /compare_medicines request for: {name1} vs {name2}")
 
     try:
-        # Find both drugs using the helper function
-        drug1_info = _find_drug_by_name(name1)
-        drug2_info = _find_drug_by_name(name2)
-
-        if drug1_info is None:
-            logging.warning(f"/compare_medicines: First medicine not found: {name1}")
-            return jsonify({'error': f"Medicine '{name1}' not found."}), 404
-
-        if drug2_info is None:
-            logging.warning(f"/compare_medicines: Second medicine not found: {name2}")
-            return jsonify({'error': f"Medicine '{name2}' not found."}), 404
+        drug1 = find_drug(name1)
+        drug2 = find_drug(name2)
+        if drug1 is None or drug2 is None:
+            missing_drug = name1 if drug1 is None else name2
+            logging.warning(f"/compare_medicines: One or both drugs not found: {name1}, {name2}")
+            return jsonify({'error': f"Medicine '{missing_drug}' not found."}), 404
 
         # Ensure both drugs have embedding text
-        if 'combined_embedding_text' not in drug1_info or pd.isna(drug1_info['combined_embedding_text']) or drug1_info['combined_embedding_text'] == "":
-             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug1_info['name']}' (ID: {drug1_info['drug_id']}).")
-             return jsonify({'error': f"Embedding text missing for '{drug1_info['name']}'."}), 500
+        if pd.isna(drug1.get('combined_embedding_text')) or drug1.get('combined_embedding_text') == "":
+             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug1.get('name', 'N/A')}' (ID: {drug1.name}).")
+             return jsonify({'error': f"Embedding text missing for '{drug1.get('name', 'N/A')}'."}), 500
 
-        if 'combined_embedding_text' not in drug2_info or pd.isna(drug2_info['combined_embedding_text']) or drug2_info['combined_embedding_text'] == "":
-             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug2_info['name']}' (ID: {drug2_info['drug_id']}).")
-             return jsonify({'error': f"Embedding text missing for '{drug2_info['name']}'."}), 500
+        if pd.isna(drug2.get('combined_embedding_text')) or drug2.get('combined_embedding_text') == "":
+             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug2.get('name', 'N/A')}' (ID: {drug2.name}).")
+             return jsonify({'error': f"Embedding text missing for '{drug2.get('name', 'N/A')}'."}), 500
 
 
         # Get the embedding texts
-        text1 = drug1_info['combined_embedding_text']
-        text2 = drug2_info['combined_embedding_text']
+        text1 = drug1.combined_embedding_text
+        text2 = drug2.combined_embedding_text
 
         # Generate embeddings for both texts
-        logging.info(f"/compare_medicines: Generating embeddings for '{drug1_info['name']}' and '{drug2_info['name']}'.")
+        logging.info(f"/compare_medicines: Generating embeddings for '{drug1.get('name', 'N/A')}' and '{drug2.get('name', 'N/A')}'.")
+        # Ensure sbert_model is available (checked by decorator)
+        if sbert_model is None:
+             logging.error("/compare_medicines: SBERT model is unexpectedly None.")
+             return jsonify({'error': 'Internal server error: Embedding model not loaded.'}), 503 # Should be caught by decorator
+
         embeddings = sbert_model.encode([text1, text2], convert_to_numpy=True)
 
-        if embeddings is None or not isinstance(embeddings, np.ndarray) or embeddings.shape[0] != 2:
+        if embeddings is None or not isinstance(embeddings, np.ndarray) or embeddings.shape[0] != 2 or embeddings.size == 0:
              raise ValueError("Failed to generate valid numpy embeddings for comparison.")
 
         embedding1 = embeddings[0].reshape(1, -1) # Reshape for cosine_similarity
@@ -402,16 +452,17 @@ def compare_medicines_route():
         # cosine_similarity returns a 2D array [[score]], so we extract the score
         similarity_score = cosine_similarity(embedding1, embedding2)[0][0]
 
-        logging.info(f"/compare_medicines: Calculated similarity between '{drug1_info['name']}' and '{drug2_info['name']}': {similarity_score:.4f}")
+        logging.info(f"/compare_medicines: Calculated similarity between '{drug1.get('name', 'N/A')}' and '{drug2.get('name', 'N/A')}': {similarity_score:.4f}")
 
         # Return the result
         return jsonify({
-            'medicine1': {'name': drug1_info['name'], 'id': drug1_info['drug_id']},
-            'medicine2': {'name': drug2_info['name'], 'id': drug2_info['drug_id']},
-            'similarity_percentage': float(similarity_score) * 100 # Ensure it's a standard float for JSON
+            'drug1': prepare_drug_response(drug1), # Use prepare_drug_response (includes smiles if available)
+            'drug2': prepare_drug_response(drug2), # Use prepare_drug_response (includes smiles if available)
+            'similarity_score': float(similarity_score), # Return the raw score
+            'similarity_percentage': round(float(similarity_score) * 100, 2) # Return the percentage
         }), 200
 
     except Exception as e:
-        logging.error(f"/compare_medicines: Error comparing '{name1}' and '{name2}': {e}", exc_info=True)
-        return jsonify({'error': f"An internal error occurred while comparing '{name1}' and '{name2}'."}), 500
+        logging.error(f"Error in /compare_medicines route for '{name1}' vs '{name2}': {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error comparing medicines.'}), 500
 

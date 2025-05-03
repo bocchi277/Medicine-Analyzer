@@ -22,7 +22,7 @@ def load_and_preprocess_data():
         Exception: For other errors during file loading or processing.
         ValueError: If the processed DataFrame is empty or lacks critical columns.
     """
-    logging.info(f"Attempting to load data from {config.DATA_PATH}")
+    logging.info(f"Attempting to load data from {config.DATA_PATH}") # <-- Check this DATA_PATH in config.py
     try:
         df = pd.read_csv(config.DATA_PATH)
         logging.info("Data loaded successfully.")
@@ -34,7 +34,8 @@ def load_and_preprocess_data():
         raise # Re-raise the exception
 
     logging.info(f"Initial data shape: {df.shape}")
-    logging.info(f"Initial columns: {df.columns.tolist()}")
+    logging.info(f"Initial columns: {df.columns.tolist()}") # <-- Check if 'smiles' is in this list
+
 
     # Define columns potentially useful for semantic meaning (for embedding)
     # Includes synonyms as they contribute to understanding the drug
@@ -45,10 +46,11 @@ def load_and_preprocess_data():
     ]
     # Define columns to keep for retrieval and LLM context (for display/details)
     # Includes brand_name as it's used for searching and display
+    # --- ENSURE 'smiles' IS IN THIS LIST IF YOU WANT IT IN THE FINAL DATAFRAME ---
     cols_to_keep = [
         'drug_id', 'name', 'generic_name', 'brand_name', 'indication', 'mechanism',
         'metabolism', 'half_life', 'pharmacodynamics', 'routes_of_administration',
-        'protein_binding', 'description','synonyms', 'background' # Added synonyms here too for potential display
+        'protein_binding', 'description', 'synonyms', 'smiles' # <-- Make sure 'smiles' is here
     ]
 
     # --- Data Cleaning and Type Conversion ---
@@ -76,13 +78,28 @@ def load_and_preprocess_data():
     # Use set difference to get columns in cols_to_keep that are NOT in text_cols_for_embedding
     cols_to_keep_only_display = [
         col for col in set(cols_to_keep) - set(existing_text_cols_for_embedding)
-        if col in df.columns and col != 'drug_id'
+        if col in df.columns and col != 'drug_id' and col != 'smiles' # Exclude smiles here, handle separately
     ]
     for col in cols_to_keep_only_display:
          df[col] = df[col].fillna("Not Available").astype(str)
          logging.debug(f"Processed '{col}' for display: filled NaNs with 'Not Available' and converted to string.")
 
-    # Handle any columns in text_cols_for_embedding or cols_to_keep that were missing initially
+    # --- Specific handling for smiles ---
+    # Ensure smiles column exists and is string type, fill NaNs with empty string if needed for consistency
+    if 'smiles' in df.columns:
+        if pd.api.types.is_string_dtype(df['smiles']):
+             df['smiles'] = df['smiles'].fillna("") # Fill NaN smiles with empty string
+             logging.debug("Processed 'smiles' column: filled NaNs with empty string.")
+        else:
+             logging.warning(f"Column 'smiles' exists but is not string dtype ({df['smiles'].dtype}), converting to string and filling NaNs.")
+             df['smiles'] = df['smiles'].astype(str).fillna("")
+    else:
+         logging.warning("Column 'smiles' not found in the loaded data. Adding with empty strings.")
+         df['smiles'] = "" # Add the column if missing
+
+
+    # Handle any other columns in text_cols_for_embedding or cols_to_keep that were missing initially
+    # This loop is less critical if the above specific handling is robust, but kept for safety
     all_relevant_cols = list(set(text_cols_for_embedding + cols_to_keep))
     for col in all_relevant_cols:
         if col not in df.columns:
@@ -132,17 +149,40 @@ def load_and_preprocess_data():
 
     # Ensure unique drug_id - handle duplicates if necessary
     initial_rows = df_processed.shape[0]
-    df_processed.drop_duplicates(subset=['drug_id'], keep='first', inplace=True)
-    if df_processed.shape[0] < initial_rows:
-        logging.warning(f"Removed {initial_rows - df_processed.shape[0]} duplicate 'drug_id' entries.")
+    # Use .loc for index-based drop_duplicates if index is already set to drug_id
+    # If not, use subset=['drug_id']
+    if 'drug_id' in df_processed.columns:
+        df_processed.drop_duplicates(subset=['drug_id'], keep='first', inplace=True)
+        if df_processed.shape[0] < initial_rows:
+            logging.warning(f"Removed {initial_rows - df_processed.shape[0]} duplicate 'drug_id' entries.")
+    else:
+        logging.warning("'drug_id' column not found for dropping duplicates.")
+
 
     # Set index for easy lookup by drug_id in the API
-    df_processed.set_index('drug_id', inplace=True, drop=False)
+    # Ensure drug_id column exists before setting index
+    if 'drug_id' in df_processed.columns:
+        try:
+            df_processed.set_index('drug_id', inplace=True, drop=False) # Keep drug_id as a column too
+            logging.info("Set 'drug_id' as DataFrame index in processed data.")
+        except Exception as e:
+            logging.error(f"Error setting 'drug_id' as index in processed data: {e}")
+    else:
+        logging.warning("'drug_id' column not found in processed data for setting index.")
+
 
     logging.info(f"Processed data shape: {df_processed.shape}")
     if df_processed.empty:
         logging.error("Processed DataFrame is empty after cleaning. Check input data and filters.")
         raise ValueError("No data available after processing.")
+
+    # --- DEBUG LOGGING: Final check for smiles column in returned data ---
+    if 'smiles' in df_processed.columns:
+        logging.info("Data processing complete: 'smiles' column FOUND in returned DataFrame.")
+    else:
+        logging.error("Data processing complete: 'smiles' column NOT FOUND in returned DataFrame.")
+    # --- END DEBUG LOGGING ---
+
 
     logging.info("Data preprocessing complete.")
     return df_processed

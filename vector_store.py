@@ -84,7 +84,7 @@ def load_index_and_map():
         logging.error(f"Error loading index or map: {e}")
         return None, None
 
-def search_similar(query_embedding, index, id_map, top_n=5):
+def search_similar(query_embedding, index, id_map, top_n=4):
     """Searches the FAISS index for similar items."""
     if index is None or query_embedding is None:
         logging.error("Cannot search with invalid index or query embedding.")

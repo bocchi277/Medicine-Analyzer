@@ -132,9 +132,8 @@ def get_best_alternative_from_llm(target_drug_details, similar_drugs_details):
     prompt += "1. Analyze the provided details for the target drug and the potential alternatives.\n"
     prompt += "2. Identify the **single best alternative** from the list (1, 2, 3, etc.).\n"
     prompt += "3. Provide a **brief reasoning** (1-2 sentences) for your choice, referencing the provided data (e.g., similar mechanism, different route, etc.). Focus only on the data presented.\n"
-    prompt += "4. **Crucially:** Do not invent information about side effects, specific efficacy data, or safety profiles not present in the text. Acknowledge limitations if necessary.\n"
-    prompt += "5. Format the output clearly, starting with 'Best Alternative:' followed by the drug name, and then 'Reasoning:'.\n"
-    prompt += "6. Also give the available brand names even if they are not available in the data.'.\n\n"
+    prompt += "4. Format the output clearly, starting with 'Best Alternative:' followed by the drug name, and then 'Reasoning and if the data is too limited then simply return that the alternate medicine is not available for the query medicine:'.\n"
+    prompt += "5. Also give the available brand names even if they are not available in the data.'.\n\n"
     prompt += "**Output:**\n"
     # --- End of Prompt ---
 
