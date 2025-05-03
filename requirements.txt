@@ -9,3 +9,4 @@ google-generativeai
 requests # Still needed if llm_service falls back or for other calls
 scikit-learn # For cosine_similarity if needed elsewhere, though FAISS handles search
 pickle-mixin # Often needed implicitly by faiss or others
+gunicorn
