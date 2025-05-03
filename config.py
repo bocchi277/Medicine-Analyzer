@@ -6,7 +6,7 @@ load_dotenv()
 
 class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    SBERT_MODEL_NAME = os.getenv('SBERT_MODEL_NAME', 'all-whiten-train-S')
+    SBERT_MODEL_NAME = os.getenv('SBERT_MODEL_NAME', 'paraphrase-MiniLM-L3-v2')
     FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "index.faiss")
     ID_MAP_PATH = os.getenv("ID_MAP_PATH", "id_map.pkl")
     DATA_PATH = os.getenv("DATA_PATH", "Drug_Data.csv")
