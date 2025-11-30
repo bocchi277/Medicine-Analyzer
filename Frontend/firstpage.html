@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Medicine Comparison Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+  <style>
+    :root {
+      --background: #0f0f0f;
+      --surface: #1e1e1e;
+      --surface-light: #2d2d2d;
+      --text-primary: rgba(255, 255, 255, 0.95);
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --text-tertiary: rgba(255, 255, 255, 0.5);
+      --accent: #8ab4f8;
+      --accent-hover: #9dc2ff;
+      --accent-alt: #a78bfa;
+      --accent-alt-hover: #b69aff;
+      --success: #69b578;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --border-radius: 12px;
+      --transition-speed: 0.2s;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color:rgb(136, 136, 214);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background Styles */
+    .background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      background-color: #0f0f0f;
+    }
+
+    .area {
+      background: url("gradient.png");
+      width: 100%;
+      height: 100vh;
+    }
+
+    .layer-blur {
+      height: 0;
+      width: 30rem;
+      z-index: -1;
+      position: absolute;
+      top: 20%;
+      right: 0;
+      box-shadow: 0 0 900px 25px white;
+      rotate: -87deg;
+    }
+
+    .circles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .circles li {
+      position: absolute;
+      display: block;
+      list-style: none;
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 254, 254, 0.17);
+      animation: animate 25s linear infinite;
+      bottom: -150px;
+    }
+
+    .circles li:nth-child(1) {
+      left: 25%;
+      width: 80px;
+      height: 80px;
+      animation-delay: 0s;
+    }
+
+    .circles li:nth-child(2) {
+      left: 10%;
+      width: 20px;
+      height: 20px;
+      animation-delay: 2s;
+      animation-duration: 12s;
+    }
+
+    .circles li:nth-child(3) {
+      left: 70%;
+      width: 20px;
+      height: 20px;
+      animation-delay: 4s;
+    }
+
+    .circles li:nth-child(4) {
+      left: 40%;
+      width: 60px;
+      height: 60px;
+      animation-delay: 0s;
+      animation-duration: 18s;
+    }
+
+    .circles li:nth-child(5) {
+      left: 65%;
+      width: 20px;
+      height: 20px;
+      animation-delay: 0s;
+    }
+
+    .circles li:nth-child(6) {
+      left: 75%;
+      width: 110px;
+      height: 110px;
+      animation-delay: 3s;
+    }
+
+    .circles li:nth-child(7) {
+      left: 35%;
+      width: 150px;
+      height: 150px;
+      animation-delay: 7s;
+    }
+
+    .circles li:nth-child(8) {
+      left: 50%;
+      width: 25px;
+      height: 25px;
+      animation-delay: 15s;
+      animation-duration: 45s;
+    }
+
+    .circles li:nth-child(9) {
+      left: 20%;
+      width: 15px;
+      height: 15px;
+      animation-delay: 2s;
+      animation-duration: 35s;
+    }
+
+    .circles li:nth-child(10) {
+      left: 85%;
+      width: 150px;
+      height: 150px;
+      animation-delay: 0s;
+      animation-duration: 11s;
+    }
+
+    @keyframes animate {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+        border-radius: 0;
+      }
+      100% {
+        transform: translateY(-1000px) rotate(720deg);
+        opacity: 0;
+        border-radius: 50%;
+      }
+    }
+
+    /* Main Content */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      margin-left: 250px;
+      transition: margin-left var(--transition-speed) ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 250px;
+      background-color: var(--surface);
+      z-index: 100;
+      transition: all var(--transition-speed) ease;
+      overflow-x: hidden;
+    }
+
+    .sidebar.active {
+      width: 80px;
+    }
+
+    .sidebar .logo-content {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+
+    .sidebar .logo {
+      display: flex;
+      align-items: center;
+      color: var(--text-primary);
+      font-size: 1.2rem;
+      font-weight: 600;
+      width: 100%;
+    }
+
+    .sidebar .logo img {
+      width: 40px;
+      margin-right: 10px;
+      min-width: 40px;
+    }
+
+    .sidebar ul {
+      padding: 20px 0;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .sidebar ul li {
+      list-style: none;
+      margin: 5px 0;
+      white-space: nowrap;
+    }
+
+    .sidebar ul li a {
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      color: var(--text-secondary);
+      padding: 10px 20px;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .sidebar ul li a:hover {
+      color: var(--accent);
+      background-color: var(--surface-light);
+    }
+
+    .sidebar ul li a i {
+      margin-right: 15px;
+      font-size: 1.2rem;
+      min-width: 24px;
+    }
+
+    .sidebar ul li a span {
+      transition: all var(--transition-speed) ease;
+    }
+
+    .sidebar.active ul li a span {
+      opacity: 0;
+      width: 0;
+      display: inline-block;
+      overflow: hidden;
+    }
+
+    /* Sidebar Toggle */
+    .sidebar-toggle {
+      position: fixed;
+      left: 10px;
+      top: 10px;
+      z-index: 101;
+      background-color: var(--surface);
+      border: none;
+      color: var(--text-primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .sidebar-toggle:hover {
+      background-color: var(--surface-light);
+      color: var(--accent);
+    }
+
+    .sidebar-toggle i {
+      font-size: 1.5rem;
+    }
+
+    /* Adjust container margin when sidebar is collapsed */
+    .sidebar-collapsed + .container {
+      margin-left: 80px;
+    }
+
+    /* Search Section */
+    .search-section {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-light) 100%);
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      animation: fadeIn 0.5s ease-out;
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .search-container {
+      max-width: 800px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .search-form {
+      display: flex;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .search-input-container {
+      position: relative;
+      flex: 1;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1.25rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1.25rem;
+      height: 1.25rem;
+      color: var(--text-tertiary);
+      transition: all var(--transition-speed) ease;
+      z-index: 2;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 1rem 1rem 1rem 3.25rem;
+      font-size: 1rem;
+      border: none;
+      background-color: var(--surface-light);
+      color: var(--text-primary);
+      border-radius: 50px;
+      transition: all var(--transition-speed) ease;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 1;
+    }
+
+    .search-input:focus {
+      outline: none;
+      background-color: var(--surface-light);
+      box-shadow: 0 0 0 2px var(--accent), 0 5px 20px rgba(138, 180, 248, 0.2);
+    }
+
+    .search-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0 1.75rem;
+      font-size: 1rem;
+      font-weight: 500;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-alt) 100%);
+      color: var(--background);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+      box-shadow: 0 4px 15px rgba(138, 180, 248, 0.3);
+    }
+
+    .search-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(138, 180, 248, 0.4);
+    }
+
+    /* Suggestions Dropdown */
+    .suggestions-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: var(--surface-light);
+      border-radius: var(--border-radius);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+      margin-top: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .suggestions-dropdown.visible {
+      display: block;
+    }
+
+    .suggestion-item {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .suggestion-item:hover {
+      background-color: rgba(138, 180, 248, 0.1);
+    }
+
+    .suggestion-icon {
+      width: 1rem;
+      height: 1rem;
+      color: var(--accent);
+    }
+
+    .popular-medicines {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: var(--text-tertiary);
+      flex-wrap: wrap;
+    }
+
+    .popular-item {
+      color: var(--accent);
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+      padding: 0.35rem 0.75rem;
+      border-radius: 50px;
+      background-color: rgba(138, 180, 248, 0.1);
+      border: 1px solid rgba(138, 180, 248, 0.2);
+    }
+
+    .popular-item:hover {
+      background-color: rgba(138, 180, 248, 0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(138, 180, 248, 0.2);
+    }
+
+    /* Drug Info Section */
+    .drug-info {
+      display: none;
+      background-color: var(--surface);
+      border-radius: var(--border-radius);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .drug-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--surface-light);
+      padding-bottom: 1rem;
+    }
+
+    .drug-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .drug-id {
+      font-size: 0.9rem;
+      padding: 0.25rem 0.5rem;
+      background-color: var(--surface-light);
+      border-radius: 4px;
+      color: var(--text-tertiary);
+    }
+
+    .synonyms {
+      font-size: 0.9rem;
+      color: var(--text-tertiary);
+      margin-bottom: 1rem;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--surface-light);
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+      position: relative;
+    }
+
+    .tab:hover {
+      color: var(--text-primary);
+    }
+
+    .tab.active {
+      color: var(--accent);
+    }
+
+    .tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--accent);
+    }
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .info-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .info-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+
+    .info-value {
+      color: var(--text-secondary);
+    }
+
+    /* Alternative Medications Section */
+    .alternatives-section {
+      display: none;
+      background-color: var(--surface);
+      border-radius: var(--border-radius);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .best-alternative {
+      background-color: var(--surface-light);
+      border-left: 4px solid var(--success);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .best-alternative-title {
+      color: var(--success);
+      margin-bottom: 0.5rem;
+    }
+
+    .alternatives-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .alternative-card {
+      background-color: var(--surface-light);
+      border-radius: var(--border-radius);
+      padding: 1.5rem;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .alternative-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .similarity-percentage {
+      display: inline-block;
+      background-color: var(--accent-alt);
+      color: var(--background);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-title {
+      margin-bottom: 0.25rem;
+    }
+
+    .card-subtitle {
+      color: var(--text-tertiary);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+
+    .card-details {
+      height: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      opacity: 0;
+    }
+
+    .card-details.expanded {
+      height: auto;
+      opacity: 1;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--surface);
+    }
+
+    .detail-item {
+      margin-bottom: 0.75rem;
+    }
+
+    .detail-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .show-more-btn {
+      background-color: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: var(--border-radius);
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .show-more-btn:hover {
+      background-color: rgba(138, 180, 248, 0.1);
+    }
+
+    /* Footer Actions */
+    .footer-actions {
+      display: none;
+      justify-content: center;
+      margin-top: 2rem;
+      gap: 1rem;
+    }
+
+    .view-details-btn {
+      background-color: var(--accent-alt);
+      color: var(--background);
+      border: none;
+      border-radius: var(--border-radius);
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .view-details-btn:hover {
+      background-color: var(--accent-alt-hover);
+      transform: translateY(-2px);
+    }
+
+    .download-btn {
+      background-color: var(--success);
+      color: var(--background);
+      border: none;
+      border-radius: var(--border-radius);
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .download-btn:hover {
+      background-color: #5aa36b;
+      transform: translateY(-2px);
+    }
+
+    /* Loading Spinner */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(138, 180, 248, 0.2);
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 992px) {
+      .container {
+        margin-left: 0;
+        padding-top: 80px;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: 60px;
+      }
+
+      .sidebar.active {
+        height: 60px;
+      }
+
+      .sidebar .logo-content {
+        justify-content: space-between;
+      }
+
+      .sidebar ul {
+        display: none;
+      }
+
+      .sidebar.active ul {
+        display: block;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        width: 100%;
+        background-color: var(--surface);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .search-form {
+        flex-direction: column;
+      }
+
+      .search-button {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem;
+      }
+
+      .alternatives-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-actions {
+        flex-direction: column;
+      }
+    }
+        /* Existing background styles */
+        .layer-blur {
+            height: 0;
+            width: 30rem;
+            z-index: -1;
+            position: absolute;
+            top: 46%;
+            right: 10%;
+            box-shadow: 0 0 900px 25px white;
+            rotate: 10deg;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .context {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .area {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .circles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        .circles li {
+            position: absolute;
+            display: block;
+            list-style: none;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            animation: animate 25s linear infinite;
+            bottom: -150px;
+        }
+
+        @keyframes animate {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+                border-radius: 0;
+            }
+
+            100% {
+                transform: translateY(-1000px) rotate(720deg);
+                opacity: 0;
+                border-radius: 50%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .search-bar {
+                position: relative;
+                top: unset;
+                margin: 10px 0;
+            }
+        }
+
+        .header {
+            z-index: 100;
+        }
+
+        .search-bar {
+            z-index: 50;
+        }
+
+        .drug-info-container {
+            padding: 20px;
+        }
+        nav .sidebar{
+            background-color: rgba(0, 0, 0, 0.125);
+        }
+
+      
+  /* Sidebar Responsive Styles */
+  @media (max-width: 992px) {
+    .sidebar {
+      width: 100%;
+      height: 60px;
+      overflow: hidden;
+    }
+    
+    .sidebar.active {
+      height: auto;
+      min-height: 60px;
+    }
+    
+    .sidebar .logo-content {
+      justify-content: space-between;
+      height: 60px;
+    }
+    
+    .sidebar ul {
+      display: none;
+      padding-top: 0;
+    }
+    
+    .sidebar.active ul {
+      display: block;
+      padding: 10px 0;
+    }
+    
+    .sidebar ul li {
+      margin: 0;
+    }
+    
+    .sidebar ul li a {
+      padding: 10px 20px;
+    }
+    
+    .container {
+      margin-left: 0;
+      padding-top: 80px;
+    }
+  }
+  /* Search Form Responsive */
+  @media (max-width: 768px) {
+    .search-form {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .search-button {
+      width: 100%;
+      justify-content: center;
+      padding: 12px;
+    }
+    
+    .popular-medicines {
+      justify-content: center;
+    }
+    
+    .suggestions-dropdown {
+      position: relative;
+      margin-top: 10px;
+    }
+  }
+
+  /* Drug Info Responsive */
+  @media (max-width: 768px) {
+    .drug-info {
+      padding: 1rem;
+    }
+    
+    .drug-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .drug-title {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    
+    .tabs {
+      overflow-x: auto;
+      white-space: nowrap;
+      padding-bottom: 5px;
+    }
+    
+    .tab {
+      padding: 10px 15px;
+      font-size: 0.9rem;
+    }
+  }
+  
+  /* Alternatives Responsive */
+  @media (max-width: 768px) {
+    .alternatives-section {
+      padding: 1rem;
+    }
+    
+    .alternatives-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .footer-actions {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .view-details-btn,
+    .download-btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+.container-p{
+  color:white;
+}
+</style>
+
+
+
+  </style>
+</head>
+<body>
+  <!-- Background Animation -->
+  <div class="background">
+    <div class="area">
+      <ul class="circles">
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+      </ul>
+    </div>
+    <div class="layer-blur"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo-content">
+      <div class="logo">
+        <img src="logo.png" alt="" class="log">
+        <span>MedSphere</span>
+        <i class='bx bx-menu' id="btn"></i>
+      </div>
+    </div>
+    <ul>
+      <li><a href="index.html">
+          <i class='bx bx-home-smile'></i>
+          <span class="nav-item">Home</span>
+        </a></li>
+      <li><a href="about.html">
+          <i class='bx bxs-contact'></i>
+          <span class="nav-item">About</span>
+        </a></li>
+      <li><a href="index.html#key-header">
+          <i class='bx bx-analyse'></i>
+          <span class="nav-item">Medicine Analyzer</span>
+        </a></li>
+      <li><a href="">
+          <i class='bx bxs-color'></i>
+          <span class="nav-item">Learn More</span>
+        </a></li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="container">
+    <header>
+      <h1>Alternative Medicine</h1>
+      <p>Search for medications to view details and find alternatives with similarity.</p>
+    </header>
+
+    <section class="search-section">
+      <div class="search-container">
+        <form class="search-form" id="search-form">
+          <div class="search-input-container">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input" id="medicine-search" placeholder="Search for medicines..." autocomplete="off">
+          </div>
+          <button type="submit" class="search-button">
+            <span>Search</span>
+            <svg class="search-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+        
+        <div class="suggestions-dropdown" id="suggestions-dropdown">
+          <!-- Suggestions will be populated here -->
+        </div>
+        
+        <div class="popular-medicines">
+          <span>Popular: </span>
+          <span class="popular-item">Ibuprofen</span>
+          <span class="popular-item">Paracetamol</span>
+          <span class="popular-item">Amoxicillin</span>
+          <span class="popular-item">Omeprazole</span>
+          <span class="popular-item">Atorvastatin</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Searching for medication data...</p>
+    </div>
+    
+    <section class="drug-info" id="drug-info">
+      <div class="drug-header">
+        <div class="drug-title">
+          <h2 id="drug-name">Drug Name</h2>
+          <span class="drug-id" id="drug-id">DB00000</span>
+        </div>
+        <div class="synonyms" id="drug-synonyms">Synonyms will appear here</div>
+      </div>
+      
+      <div class="tabs">
+        <button class="tab active" data-tab="information">Information</button>
+        <button class="tab" data-tab="mechanism">Mechanism</button>
+        <button class="tab" data-tab="pharmacology">Pharmacology</button>
+      </div>
+      
+      <div class="tab-content active" id="information">
+        <div class="info-group">
+          <div class="info-label">Background</div>
+          <div class="info-value" id="drug-background">Drug background information will appear here.</div>
+        </div>
+        
+        <div class="info-group">
+          <div class="info-label">Indication</div>
+          <div class="info-value" id="drug-indication">Indication information will appear here.</div>
+        </div>
+        
+        <div class="info-group">
+          <div class="info-label">Drug Category</div>
+          <div class="info-value" id="drug-category">Category information will appear here.</div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="mechanism">
+        <div class="info-group">
+          <div class="info-label">Mechanism of Action</div>
+          <div class="info-value" id="drug-mechanism">Mechanism information will appear here.</div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="pharmacology">
+        <div class="info-group">
+          <div class="info-label">Pharmacodynamics</div>
+          <div class="info-value" id="drug-pharmacodynamics">Pharmacodynamics information will appear here.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="alternatives-section" id="alternatives-section">
+      <h2>Alternative Medications</h2>
+      
+      <div class="best-alternative" id="best-alternative">
+        <h3 class="best-alternative-title">Best Alternative Recommendation</h3>
+        <p id="best-alternative-content">Best alternative recommendation will appear here.</p>
+      </div>
+      
+      <h3>Top Alternative Options</h3>
+      <div class="alternatives-grid" id="alternatives-grid">
+        <!-- Alternative cards will be generated here -->
+      </div>
+    </section>
+    
+    <div class="footer-actions" id="footer-actions">
+      <button class="view-details-btn" id="view-details-btn">View Similarity Details</button>
+      <button class="download-btn" id="download-btn">Download Data</button>
+    </div>
+  </div>
+  
+  <script src="script1.js"></script>
+  <script>
+    // Sidebar toggle functionality
+    document.getElementById('btn').addEventListener('click', function() {
+      document.querySelector('.sidebar').classList.toggle('active');
+      document.querySelector('.container').classList.toggle('sidebar-collapsed');
+      
+      // Update margin based on sidebar state
+      const sidebar = document.querySelector('.sidebar');
+      const container = document.querySelector('.container');
+      if (sidebar.classList.contains('active')) {
+        container.style.marginLeft = '80px';
+      } else {
+        container.style.marginLeft = '250px';
+      }
+    });
+  </script>
+</body>
+</html>
