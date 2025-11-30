@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us | Medsphere</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-dark: #111827;
+            --bg-card: #1f2937;
+            --text-light: #f9fafb;
+            --text-muted: #9ca3af;
+            --border: #374151;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 2rem;
+            /* Adjusted for sidebar */
+            transition: margin-left 0.3s ease;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            height: 100%;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1rem;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .sidebar.closed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar .logo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-left: 1rem;
+        }
+        
+        .sidebar .logo-icon {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-right: 0.5rem;
+        }
+        
+        .sidebar .logo-text {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .sidebar ul {
+            list-style: none;
+        }
+        
+        .sidebar ul li {
+            margin-bottom: 1rem;
+        }
+        
+        .sidebar ul li a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 1.1rem;
+            display: block;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar ul li a:hover {
+            color: var(--text-light);
+            background-color: var(--primary);
+        }
+        
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: fadeInDown 0.8s ease forwards;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .logo-icon {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-right: 0.75rem;
+        }
+        
+        .logo-text {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, var(--text-light), var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .intro {
+            max-width: 800px;
+            margin: 0 auto 3rem;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            opacity: 0;
+            animation: fadeIn 1s ease 0.3s forwards;
+        }
+        
+        .highlight {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .section {
+            margin-bottom: 5rem;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 1s ease 0.5s forwards;
+        }
+        
+        .section-title {
+            font-size: 2.2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+            padding-bottom: 1rem;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .feature-card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary);
+        }
+        
+        .feature-card:hover::before {
+            opacity: 0.1;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .team {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2.5rem;
+            margin-top: 3rem;
+        }
+        
+        .team-member {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            border-color: var(--primary);
+        }
+        
+        .member-photo {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+        }
+        
+        .member-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .team-member:hover .member-photo img {
+            transform: scale(1.1);
+        }
+        
+        .member-info {
+            padding: 1.5rem;
+        }
+        
+        .member-name {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        .member-role {
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        
+        .member-bio {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+        }
+        
+        .team-member:hover .member-bio {
+            max-height: 200px;
+        }
+        
+        .member-social {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .social-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--bg-dark);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .social-icon:hover {
+            background-color: var(--primary);
+            color: white;
+            transform: translateY(-3px);
+        }
+        
+        .cta {
+            text-align: center;
+            margin-top: 4rem;
+            opacity: 0;
+            animation: fadeIn 1s ease 0.8s forwards;
+        }
+        
+        .cta-text {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 8px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 2px solid var(--primary);
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: var(--primary);
+            margin-left: 1rem;
+        }
+        
+        .btn-outline:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        /* New styles for technology section */
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .tech-item {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+        
+        .tech-item:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tech-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+        
+        .tech-name {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .tech-desc {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        /* Data sources section */
+        .data-sources {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .source-card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+        
+        .source-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+        
+        .source-name {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+        
+        .source-desc {
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+        
+        .source-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .source-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Methodology section */
+        .methodology-steps {
+            counter-reset: step-counter;
+            max-width: 800px;
+            margin: 2rem auto 0;
+        }
+        
+        .methodology-step {
+            position: relative;
+            padding-left: 4rem;
+            margin-bottom: 2rem;
+        }
+        
+        .methodology-step::before {
+            counter-increment: step-counter;
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2.5rem;
+            height: 2.5rem;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .step-title {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .step-desc {
+            color: var(--text-muted);
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .container {
+                margin-left: 0;
+                padding: 1.5rem 1rem;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .hamburger {
+                display: block;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .section-title {
+                font-size: 1.8rem;
+            }
+            
+            .features, .team, .tech-stack, .data-sources {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                display: block;
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            
+            .btn-outline {
+                margin-left: 0;
+            }
+        }
+        
+        /* Animated cursor */
+        .cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: rgba(99, 102, 241, 0.3);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease, background-color 0.3s ease;
+        }
+        
+        .cursor.grow {
+            transform: translate(-50%, -50%) scale(2.5);
+            background-color: rgba(99, 102, 241, 0.1);
+        }
+
+        .logo {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+}
+
+.logo-image {
+    height: 80px; /* Adjust size as needed */
+    width: auto;
+    object-fit: contain;
+}
+
+    </style>
+</head>
+<body>
+    <div class="cursor"></div>
+    
+    <!-- Sidebar -->
+   
+    
+    <!-- Hamburger Menu -->
+    <button class="hamburger">☰</button>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <img src="logo.png" alt="Medsphere Logo" class="logo-image">
+                <div class="logo-text">Medsphere</div>
+            </div>
+            <h1>Simplifying Access to Medical Information</h1>
+        </header>
+        
+        <div class="intro">
+            <p>We're a passionate team of <span class="highlight">first-year college students</span> with a shared vision: making medical information accessible to everyone. Medsphere was born from our belief that understanding medications shouldn't require a medical degree. Our platform bridges the gap between complex pharmaceutical data and everyday users, empowering you to make informed decisions about your health.</p>
+        </div>
+        
+        <section class="section">
+            <h2 class="section-title">Our Mission</h2>
+            <p>At Medsphere, we're on a mission to democratize access to pharmaceutical information. We believe that everyone deserves to understand the medications they take – from how they work to potential side effects. By combining technology with healthcare expertise, we've created a platform that translates complex medical jargon into clear, actionable insights.</p>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">Key Features</h2>
+            <div class="features">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3 class="feature-title">Drug Details</h3>
+                    <p>Access comprehensive drug information including purpose, dosage, side effects, chemical structure (via SMILES), and safety guidelines. Medsphere gives users a clear, structured view of each medicine to support smarter health decisions.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔁</div>
+                    <h3 class="feature-title">Comparison </h3>
+                    <p>Compare two medicines side by side to understand their similarities in composition, effects, and purpose. View similarity percentage and make informed decisions with the help of graph representation</p>
+                </div>
+           
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Find Alternative</h3>
+                    <p>Discover alternative drugs with similar properties, indications, or therapeutic uses. Useful when looking for substitutes due to availability, cost, or side effects.
+                </div>
+            
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">Our Technology Stack</h2>
+            <p>We leverage cutting-edge technologies to deliver accurate, up-to-date medical information in an accessible format. Here's what powers our platform:</p>
+            
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <div class="tech-icon">🤖</div>
+                    <h3 class="tech-name">Gemini API</h3>
+                    <p class="tech-desc">Used to intelligently select the best alternative from the top 10 similar drugs.</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">🧬</div>
+                    <h3 class="tech-name">SBERT (PubMedBERT-MS-MARCO)</h3>
+                    <p class="tech-desc">Generates top 10 semantically similar drugs using biomedical embeddings</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">🌐</div>
+                    <h3 class="tech-name">Flask</h3>
+                    <p class="tech-desc">Lightweight Python web framework for routing and logic</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">🚇</div>
+                    <h3 class="tech-name">Ngrok</h3>
+                    <p class="tech-desc">Securely exposes local servers to the web for testing.</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">🧪</div>
+                    <h3 class="tech-name">NIH API</h3>
+                    <p class="tech-desc">Fetches drug data and generates 2D chemical structures from SMILES.</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div class="tech-icon">💻</div>
+                    <h3 class="tech-name">General Frontend Technologies</h3>
+                    <p class="tech-desc">We use HTML5 for content structure, CSS3 for modern dark theme styling, and JavaScript to enable dynamic interactions and enhance user experience. </p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">✨</div>
+                    <h3 class="tech-name">Lucide Icons / Emojis</h3>
+                    <p class="tech-desc">Modern, intuitive icons for a user-friendly interface.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">Our Data Sources</h2>
+            <p>We aggregate and verify information from multiple authoritative sources to ensure accuracy and reliability:</p>
+            
+            <div class="data-sources">
+
+                
+                <div class="source-card">
+                    <h3 class="source-name">DrugBank</h3>
+                    <p class="source-desc">Provides high-quality information about marketed drugs, including package inserts and labeling.</p>
+                    <a href="#" class="source-link">Learn more →</a>
+                </div>
+                
+
+            </div>
+        </section>
+        
+        
+        
+        <section class="section">
+            <h2 class="section-title">Meet Our Team</h2>
+            <div class="team">
+                <div class="team-member">
+                    <div class="member-info">
+                        <h3 class="member-name">Arpita Tripathi</h3>
+                        <p class="member-role">Frontend Developer</p>
+                        <div class="member-bio">
+                            <p>She structured the Medsphere website using HTML5, styled it with CSS3, and added dynamic features with JavaScript. She also integrated an API to display interactive 2D graphs, enhancing the user experience with data visualization</p>
+                            
+                        </div>
+                <div class="member-social">
+                    <a href="https://github.com/Arpita-Tripathi" target="_blank" class="social-icon">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a href="https://www.linkedin.com/in/arpita-tripathi-57900b328?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BHcJDqy1iQum1wXKanATxJA%3D%3D" target="_blank" class="social-icon">
+                        <i class="fab fa-linkedin"></i>
+                    </a>
+                </div>
+
+                    </div>
+                </div>
+                
+                <div class="team-member">
+
+                    <div class="member-info">
+                        <h3 class="member-name">Saurabh Bisht</h3>
+                        <p class="member-role">Backend Developer</p>
+                        <div class="member-bio">
+                            <p>I developed the server-side infrastructure using Flask, integrated APIs like Gemini, and ensured smooth data handling to support the website’s features.He played a key role in making the site’s functionalities work seamlessly, ensuring fast, reliable performance..</p>
+                            
+                        </div>
+                        <div class="member-social">
+                            <a href="https://github.com/bocchi277" target="_blank" class="social-icon">
+                                <i class="fab fa-github"></i>
+                            </a>
+                            <a href="hhttps://www.linkedin.com/in/saurabh-bisht-313301316?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" class="social-icon">
+                                <i class="fab fa-linkedin"></i>
+                            </a>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                <div class="team-member">
+                    <div class="member-info">
+                        <h3 class="member-name">Anand Singh</h3>
+                        <p class="member-role">Web Scraper</p>
+                        <div class="member-bio">
+                           
+                            <p>As a web scraper for the Medsphere project, He focused on extracting valuable data from various sources, ensuring accurate and up-to-date information for the website. Using tools like Selenium, He automated the process of gathering and organizing data from platforms like WebMD, DrugBank and many more.</p>
+                        </div>
+                            <div class="member-social">
+                            <a href="https://github.com/Anand-Gunnpal" target="_blank" class="social-icon">
+                                <i class="fab fa-github"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/anand-singh-253524325?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app " target="_blank" class="social-icon">
+                                <i class="fab fa-linkedin"></i>
+                            </a>
+                        </div>
+                            
+                   
+                </div>
+            </div>
+        </section>
+        
+        <div class="cta">
+            <p class="cta-text">Ready to explore the world of medications with confidence?</p>
+            <div>
+                <a href="index.html" class="btn">Get Started</a>
+                <a href="#" class="btn btn-outline">Contact Us</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Cursor animation
+        const cursor = document.querySelector('.cursor');
+        const links = document.querySelectorAll('a, .feature-card, .team-member, .tech-item, .source-card');
+        
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.top = e.clientY + 'px';
+            cursor.style.left = e.clientX + 'px';
+        });
+        
+        links.forEach(link => {
+            link.addEventListener('mouseenter', () => {
+                cursor.classList.add('grow');
+            });
+            
+            link.addEventListener('mouseleave', () => {
+                cursor.classList.remove('grow');
+            });
+        });
+        
+        // Hide cursor when it leaves the window
+        document.addEventListener('mouseout', (e) => {
+            if (e.relatedTarget === null) {
+                cursor.style.opacity = '0';
+            }
+        });
+        
+        document.addEventListener('mouseover', () => {
+            cursor.style.opacity = '1';
+        });
+        
+        // Add scroll animations
+        const observerOptions = {
+            threshold: 0.1
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        document.querySelectorAll('.section').forEach(section => {
+            observer.observe(section);
+        });
+        
+        // Sidebar toggle
+        const hamburger = document.querySelector('.hamburger');
+        const sidebar = document.querySelector('.sidebar');
+        
+        hamburger.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            hamburger.textContent = sidebar.classList.contains('open') ? '✕' : '☰';
+        });
+    </script>
+</body>
+</html>

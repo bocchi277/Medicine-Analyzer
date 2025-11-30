@@ -1,0 +1,841 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins';
+    scroll-behavior: smooth;
+}
+
+:root {
+    --background: rgb(4, 4, 4);
+}
+
+body {
+    line-height: 1.5;
+    background-color: var(--background);
+    background-image: url('gradient.png');
+}
+
+nav .sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 5%;
+    gap: 15vh;
+    background-color: var(--background);
+    position: fixed;
+    top: 0vh;
+    left: 0;
+    transition: width 0.3s ease-in-out;
+    overflow: hidden;
+    z-index: 999;
+}
+
+nav .sidebar.active {
+    width: 20%;
+    gap: 15vh;
+}
+
+nav .sidebar.active .logo-content span {
+    display: block;
+    transition: all 0.3s ease-in-out;
+
+}
+
+nav .sidebar .logo {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 7px 14px;
+    padding-top: 3vh;
+}
+
+nav .sidebar .logo span {
+    display: none;
+    font-size: 1rem;
+    font-weight: 800;
+    color: aliceblue;
+}
+
+nav .sidebar .logo i {
+    display: flex;
+    align-items: center;
+    font-size: 1.6rem;
+    color: rgb(219, 219, 250);
+    height: 50px;
+}
+
+nav .sidebar .logo .log {
+    display: none;
+}
+
+nav .sidebar.active .logo .log {
+    display: flex;
+    transition: all 0.3s ease-in-out;
+    align-items: center;
+    color: rgb(219, 219, 250);
+    height: 3rem;
+}
+
+nav .sidebar .logo img {
+    display: none;
+}
+
+nav .sidebar ul {
+    list-style: None;
+    display: flex;
+    flex-direction: column;
+    gap: 4vh;
+}
+
+nav .sidebar ul li a {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 2vw;
+}
+
+nav .sidebar ul li a i {
+    font-size: 1.5rem;
+}
+
+nav .sidebar ul li {
+    padding: 20px;
+    transition: all 0.3s ease-in;
+
+}
+
+nav .sidebar .nav-item {
+    font-size: 0.8rem;
+    display: none;
+}
+
+nav .sidebar .nav-item.active {
+    display: block;
+}
+
+nav .sidebar ul li:hover {
+    background-color: rgb(255, 254, 254);
+    transform: translateY(-10px);
+    border-radius: 15px;
+}
+
+nav .sidebar ul li:hover a {
+    color: rgb(15, 14, 14);
+    transition: 0.3s ease-in-out;
+}
+
+nav ul li a {
+    color: rgb(255, 255, 255);
+}
+
+#btn {
+    color: rgb(255, 255, 255);
+}
+
+/* Responsive Design */
+
+/* Tablets & Small Laptops */
+@media screen and (max-width: 1024px) {
+    nav .sidebar {
+        width: 8%;
+    }
+
+    nav .sidebar.active {
+        width: 25%;
+    }
+}
+
+/* Mobile Screens */
+@media screen and (max-width: 768px) {
+    nav .sidebar {
+        width: 10%;
+    }
+
+    nav .sidebar.active {
+        width: 60%;
+    }
+
+    nav .sidebar .logo span {
+        font-size: 18px;
+    }
+
+    nav .sidebar ul li a {
+        font-size: 16px;
+    }
+}
+
+/* Very Small Mobile Screens */
+@media screen and (max-width: 480px) {
+    nav .sidebar {
+        width: 15%;
+    }
+
+    nav .sidebar.active {
+        width: 70%;
+    }
+
+    nav .sidebar ul {
+        gap: 2vh;
+    }
+
+    nav .sidebar ul li a {
+        font-size: 14px;
+        gap: 4vw;
+    }
+}
+
+.home-content {
+    position: absolute;
+    left: 23%;
+    top: 20%;
+    width: 75%;
+    height: 100vh;
+    /* transform: translate(-50%, -50%); */
+    color: white;
+    z-index: 1;
+}
+
+.tag-box {
+    position: relative;
+    width: 18rem;
+    height: 2.5rem;
+    border-radius: 50px;
+    background-color: #FBAB7E;
+    background-image: linear-gradient(43deg, #FBAB7E 0%, #C850C0 46%, #FFCC70 70%, #FBAB7E 100%);
+    background-size: 200%;
+    animation: anime-gradient 2.6s linear infinite;
+    box-shadow: 0px 0px 15px #FFCC70;
+
+}
+
+.tag-box .tag {
+    position: absolute;
+    inset: 3px 3px 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50px;
+    transition: 0.5s ease;
+    background-color: var(--background);
+    cursor: pointer;
+
+}
+.tag-box .tag:hover{
+    color: #FBAB7E;
+}
+/* From Uiverse.io by abrahamcalsin */ 
+.buttons button {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 5px;
+    background: #e8e8e8;
+    font-family: "Montserrat", sans-serif;
+    box-shadow: 0px 6px 24px 0px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    cursor: pointer;
+    border: none;
+  }
+  
+  .buttons button:after {
+    content: " ";
+    width: 0%;
+    height: 100%;
+    background: #ffd401;
+    position: absolute;
+    transition: all 0.4s ease-in-out;
+    right: 0;
+  }
+  
+  .buttons button:hover::after {
+    right: auto;
+    left: 0;
+    width: 100%;
+  }
+  
+  .buttons button a {
+    text-align: center;
+    text-decoration: none;
+    width: 100%;
+    padding: 18px 25px;
+    color: #2a2a2a;
+    font-size: 1.125em;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    z-index: 20;
+    transition: all 0.3s ease-in-out;
+  }
+  
+  .buttons button:hover a {
+    color: #183153;
+    animation: scaleUp 0.3s ease-in-out;
+  }
+  
+  @keyframes scaleUp {
+    0% {
+      transform: scale(1);
+    }
+  
+    50% {
+      transform: scale(0.95);
+    }
+  
+    100% {
+      transform: scale(1);
+    }
+  }
+  
+#image-container {
+    display: flex;
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    right: 0;
+    top: 0;
+    padding-bottom: 10vh;
+    transition: all 0.5s linear;
+}
+
+#first-img {
+    position: absolute;
+    height: 400px;
+    /* right: 10vw; */
+    z-index: 3;
+    animation: float1 5s infinite ease-in-out;
+}
+
+#second-img {
+    position: absolute;
+    width: 100%;
+    height: auto;
+    top: -110px;
+    z-index: 2;
+    border-radius: 10px;
+    animation: float2 6s infinite ease-in-out;
+}
+
+@keyframes float1 {
+    0% {
+        transform: translateY(0px);
+
+    }
+
+    50% {
+        transform: translateY(-30px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+
+}
+
+@keyframes float2 {
+    0% {
+        transform: translateY(0px);
+
+    }
+
+    50% {
+        transform: translateY(-40px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+
+}
+
+@keyframes anime-gradient {
+    to {
+        background-position: 200%;
+    }
+}
+
+.header {
+    display: flex;
+    gap: 2vh;
+    flex-direction: column;
+    margin-top: 7vh;
+}
+
+#first_tag {
+    font-size: 1.4rem;
+    gap: 2vh;
+    color: #ffffff;
+    transition: all 0.5s ease-in-out;
+}
+#first_tag:hover {
+    color: aliceblue;
+    letter-spacing: 0rem;
+    letter-spacing: 0.03rem;
+
+    text-shadow: 0 0 10px #ffffff5f,
+        0 0 20px #ffffff82,
+        0 0 40px #badbff;
+    /* 0 0 80px #fff */
+    /* 0 0 160px #fff; */
+}
+
+#second_tag {
+    font-size: 1.7rem;
+    margin-left: 10%;
+    left: 10%;
+    margin-bottom: 5vh;
+}
+#main_content {
+    display: flex;
+    flex-direction: column;
+    width: 75%;
+    margin-left: 23%;
+    margin-top: 10vh;
+    height: 100vh;
+    color: white;
+    z-index: 1;
+}
+.main-heading{
+    margin-top: 2.8vh;
+}
+@keyframes appear {
+    from {
+        opacity: 0;
+        scale: 0.5;
+    }
+
+    to {
+        opacity: 1;
+        scale: 1;
+    }
+}
+
+.animate {
+    animation: appear linear;
+    animation-timeline: view();
+    animation-range: entry 0%;
+}
+.key-features {
+    height: 80vh;
+    gap: 5vw;
+    display: flex;
+    margin-top: 10vh;
+    background-image: url('gradient.png');
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 15rem;
+    width: 13rem;
+    position: relative;
+    left: 23%;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.card {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-image: url("https://cdn.pixabay.com/photo/2022/09/13/11/30/pattern-7451714_1280.jpg");
+    background-size: cover;
+    transition: 1s;
+    border-radius: 10px;
+    box-shadow: rgb(20, 20, 20) 0px 10px 10px;
+    transition: transform 0.5s ease-in-out;
+}
+.icon{
+    width: 5rem;
+    height: 6rem;
+    position: absolute;
+    background-size: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: 1s;
+}
+#first{
+    background-image: url("drug_11095347.png");
+}
+#second{
+    background-image: url("comparasion.png");
+}
+#third{
+    background-image: url("alternate.png");
+}
+.container:hover .card {
+    transform: perspective(20px) rotateX(2deg) translateY(-50px);
+    transition: transform 0.5s ease-in-out;
+}
+.container:hover .icon{
+    transform: translateY(-200px);
+}
+.key-header{
+    position: relative;
+    text-align: center;
+    padding: 3rem;
+    color: white;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+.key-header h2{
+    position: absolute;
+    transform: translate(-50px, -50px);
+    font-size: 2rem;
+    left: 45%;
+}
+.key-header h2:nth-child(1){
+
+    color: transparent;
+    -webkit-text-stroke: 0.6px #ffffff;
+}
+.key-header h2:nth-child(2){
+
+    color: #d8d8d8;
+    animation: water_animate 4s ease-in-out infinite;
+}
+@keyframes water_animate {
+    0%, 100% {
+        clip-path: polygon(0% 47%, 10% 48%, 20% 50%, 30% 52%, 40% 54%, 50% 55%, 60% 54%, 70% 52%, 80% 50%, 90% 48%, 100% 47%, 100% 100%, 0% 100%);
+    }
+    12.5% {
+        clip-path: polygon(0% 52%, 10% 54%, 20% 56%, 30% 58%, 40% 60%, 50% 61%, 60% 60%, 70% 58%, 80% 56%, 90% 54%, 100% 52%, 100% 100%, 0% 100%);
+    }
+    25% {
+        clip-path: polygon(0% 57%, 10% 60%, 20% 62%, 30% 64%, 40% 65%, 50% 66%, 60% 65%, 70% 64%, 80% 62%, 90% 60%, 100% 57%, 100% 100%, 0% 100%);
+    }
+    37.5% {
+        clip-path: polygon(0% 62%, 10% 65%, 20% 66%, 30% 67%, 40% 68%, 50% 67%, 60% 66%, 70% 65%, 80% 64%, 90% 63%, 100% 62%, 100% 100%, 0% 100%);
+    }
+    50% {
+        clip-path: polygon(0% 65%, 10% 67%, 20% 68%, 30% 67%, 40% 66%, 50% 65%, 60% 64%, 70% 63%, 80% 62%, 90% 61%, 100% 60%, 100% 100%, 0% 100%);
+    }
+    62.5% {
+        clip-path: polygon(0% 60%, 10% 61%, 20% 62%, 30% 63%, 40% 62%, 50% 60%, 60% 58%, 70% 57%, 80% 56%, 90% 55%, 100% 54%, 100% 100%, 0% 100%);
+    }
+    75% {
+        clip-path: polygon(0% 55%, 10% 56%, 20% 57%, 30% 58%, 40% 57%, 50% 56%, 60% 55%, 70% 54%, 80% 53%, 90% 52%, 100% 51%, 100% 100%, 0% 100%);
+    }
+    87.5% {
+        clip-path: polygon(0% 50%, 10% 51%, 20% 52%, 30% 53%, 40% 54%, 50% 53%, 60% 52%, 70% 51%, 80% 50%, 90% 49%, 100% 48%, 100% 100%, 0% 100%);
+    }
+}
+
+.card {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-image: url("https://cdn.pixabay.com/photo/2022/09/13/11/30/pattern-7451714_1280.jpg");
+    background-size: cover;
+    border-radius: 10px;
+    box-shadow: rgba(20, 20, 20, 0.5) 0px 10px 10px; /* Slightly adjusted shadow */
+    transition: transform 0.5s ease-in-out;
+    /* Added overflow hidden to contain the content */
+    overflow: hidden;
+    display: flex; /* Use flexbox to center content */
+    justify-content: center;
+    align-items: flex-end;
+    padding-bottom: 2rem; /* Add some padding at the bottom */
+}
+
+/* Style for the content inside the card */
+.card-content {
+    text-align: center;
+    color: white; /* Set text color */
+    opacity: 0; /* Hide initially */
+    transform: translateY(30px); /* Start slightly lower */
+    transition: opacity 0.5s 0.2s ease-in-out, transform 0.5s 0.2s ease-in-out; /* Add transition with delay */
+    z-index: 2; /* Ensure content is above the card background */
+    position: relative; /* Needed for z-index */
+}
+
+.card-content h2 {
+    margin: 0;
+    font-size: 1.2rem; /* Adjust font size as needed */
+}
+
+/* Make sure the card's pseudo-elements or background don't cover the text */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Optional: Add a semi-transparent overlay on hover if needed */
+    background-color: rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    z-index: 1; /* Place overlay behind content */
+    border-radius: 10px; /* Match card border-radius */
+}
+
+/* Show the text on hover */
+.container:hover .card-content {
+    opacity: 1; /* Make text visible */
+    transform: translateY(0); /* Move text to its final position */
+}
+
+.container:hover .card::before {
+    opacity: 1;
+}
+.card-content a{
+    color: white;
+    text-decoration: none;
+}
+@media screen and (max-width: 1225px){
+    #first-img{
+        right: 5vw;
+    }
+    #second-img{
+        right: -12vw;
+    }
+    .key-features{
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+    .key-features {
+        /* --- Switch to Grid --- */
+        display: grid;                  /* 1. Change display type */
+        grid-template-columns: 1fr;     /* 2. Define a single column to stack items */
+                                        /* (Use 'repeat(2, 1fr)' for two columns, etc.) */
+
+        /* --- Adjust Layout & Spacing --- */
+        height: auto;                   /* 3. Let height grow with content (IMPORTANT) */
+        min-height: 60vh;               /* Optional: Set a minimum height if desired */
+        gap: 9rem;                      /* 4. Use a more predictable gap (adjust value) */
+        margin-top: 3rem;               /* 5. Use a more predictable margin (adjust value) */
+        padding: 2rem 1rem;             /* 6. Adjust padding if needed for grid layout */
+
+        /* --- Align Grid Items --- */
+        justify-items: center;          /* 7. Center items horizontally within the grid cell */
+        align-items: stretch;           /* Keep default vertical stretch or use 'start', 'center' etc. */
+
+        /* --- Keep Existing Styles --- */
+        background-image: url('gradient.png'); /* Keep background */
+        /* Remove flex-specific properties not needed for grid */
+        /* justify-content: center; */ /* Use justify-items for grid */
+        /* align-items: stretch; */   /* Use align-items for grid */
+        /* flex-wrap: wrap; */       /* Not needed for single column grid */
+    }
+
+    /* --- Adjust Child Elements (if necessary) --- */
+    /* Make sure the direct children (.container) behave well in the grid cell */
+    .key-features .container {
+        width: 90%;                 /* Example: Control width within the grid cell */
+        max-width: 500px;    
+        left: 0%;       /* Example: Set a max-width */
+        /* Resetting flex properties if they were set on children */
+        /* flex-basis: auto; */
+    }
+    .card{
+        width: 40vw;
+        height: 50vh;
+        padding: 3rem;
+    }
+}
+@media screen and (max-width: 1024px) {
+    #main-content {
+        padding: 1.5rem;
+    }
+     #main-content.sidebar-active {
+        /* Adjust based on potentially wider active sidebar if needed */
+        margin-left: 25%; width: 75%;
+     }
+
+    .home-content {
+        flex-direction: column; /* Stack text and image */
+        text-align: center; /* Center align text */
+        min-height: auto; /* Allow natural height */
+        padding-top: 8vh;
+    }
+    .header {
+        max-width: 80%; /* Allow more width */
+        align-items: center; /* Center items */
+        margin-bottom: 2rem; /* Space below text block */
+    }
+    #first_tag {
+        font-size: 2rem;
+    }
+    .header p {
+        font-size: 0.95rem;
+    }
+
+    #image-container {
+        display: none;
+        width: 50%; /* Adjust width */
+        max-width: 450px;
+        order: -1; /* Place image above text */
+        margin-bottom: 2rem; /* Space below image */
+    }
+    #first-img { height: 65%; }
+
+    .key-features .container {
+        width: calc(50% - 1.5rem); /* Two columns */
+        min-width: 250px;
+    }
+    .key-header h2 { font-size: 1.8rem; }
+}
+
+/* --- Tablets & Mobile Landscape (<= 768px) --- */
+@media screen and (max-width: 768px) {
+    :root {
+        /* Optionally reduce base font size slightly */
+        font-size: 15px;
+    }
+     /* Adjust main content margin ONLY if sidebar doesn't overlay */
+     /* If sidebar overlays, margin-left should remain the collapsed width */
+    #main-content {
+        margin-left: 55px; /* Match collapsed sidebar */
+        width: calc(100% - 55px);
+        padding: 1rem; /* Reduce padding */
+    }
+    /* Remove the sidebar-active margin adjustment if it overlays */
+     #main-content.sidebar-active {
+        margin-left: 55px; /* Keep collapsed margin */
+        width: calc(100% - 55px);
+     }
+
+    .home-content {
+        padding-top: 3vh;
+        left: 19%;
+    }
+    .header {
+        max-width: 90%;
+    }
+    #first_tag {
+        font-size: 1.8rem;
+        line-height: 1.2;
+    }
+    .header p {
+        font-size: 0.9rem;
+    }
+     .tag-box { width: 16rem; height: 2.2rem; }
+     .tag-box .tag { font-size: 0.85rem; }
+
+    .buttons button a {
+        font-size: 0.9rem;
+        padding: 14px 20px;
+        letter-spacing: 0.1em;
+    }
+
+    #image-container {
+        display: none;
+        width: 60%;
+        max-width: 350px;
+    }
+     #first-img { height: 60%; }
+     .key-features {
+        /* --- Switch to Grid --- */
+        display: grid;                  /* 1. Change display type */
+        grid-template-columns: 1fr;     /* 2. Define a single column to stack items */
+                                        /* (Use 'repeat(2, 1fr)' for two columns, etc.) */
+
+        /* --- Adjust Layout & Spacing --- */
+        height: auto;                   /* 3. Let height grow with content (IMPORTANT) */
+        min-height: 60vh;               /* Optional: Set a minimum height if desired */
+        gap: 9rem;                      /* 4. Use a more predictable gap (adjust value) */
+        margin-top: 3rem;               /* 5. Use a more predictable margin (adjust value) */
+        padding: 2rem 1rem;             /* 6. Adjust padding if needed for grid layout */
+
+        /* --- Align Grid Items --- */
+        justify-items: center;          /* 7. Center items horizontally within the grid cell */
+        align-items: stretch;           /* Keep default vertical stretch or use 'start', 'center' etc. */
+
+        /* --- Keep Existing Styles --- */
+        background-image: url('gradient.png'); /* Keep background */
+        /* Remove flex-specific properties not needed for grid */
+        /* justify-content: center; */ /* Use justify-items for grid */
+        /* align-items: stretch; */   /* Use align-items for grid */
+        /* flex-wrap: wrap; */       /* Not needed for single column grid */
+    }
+
+    /* --- Adjust Child Elements (if necessary) --- */
+    /* Make sure the direct children (.container) behave well in the grid cell */
+    .key-features .container {
+        width: 90%;                 /* Example: Control width within the grid cell */
+        max-width: 500px;    
+        left: 0%;       /* Example: Set a max-width */
+        /* Resetting flex properties if they were set on children */
+        /* flex-basis: auto; */
+    }
+    .key-features {
+        gap: 1.5rem;
+        padding: 0 0.5rem 3rem 0.5rem;
+    }
+    .key-features .container {
+        width: calc(50% - 1rem); /* Still two columns, adjust gap calculation */
+        padding: 1rem;
+    }
+     .key-features .card-content h2 { font-size: 1.2rem; }
+     .key-features .icon { width: 60px; height: 60px; }
+
+     .key-header h2 { font-size: 1.6rem; }
+     .key-header { margin: 3rem 0 1.5rem 0; }
+}
+
+/* --- Mobile Portrait (<= 480px) --- */
+@media screen and (max-width: 480px) {
+    /* Adjust main content margin ONLY if sidebar doesn't overlay */
+    #main-content {
+        margin-left: 50px;
+        width: calc(100% - 50px);
+        padding: 0.8rem;
+    }
+    #main-content.sidebar-active {
+        margin-left: 50px; /* Keep collapsed margin */
+        width: calc(100% - 50px);
+    }
+
+    .home-content {
+        padding-top: 3vh;
+    }
+    .header {
+        max-width: 95%;
+        gap: 1rem;
+    }
+     #first_tag { font-size: 1.5rem; }
+     .header p { font-size: 0.85rem; }
+     .tag-box { width: 14rem; height: 2rem; transform: scale(0.95); }
+     .tag-box .tag { font-size: 0.8rem; }
+
+    .buttons button a {
+        font-size: 0.8rem;
+        padding: 12px 18px;
+    }
+
+    #image-container {
+        display: none;
+        width: 70%;
+        max-width: 300px;
+    }
+     #first-img { height: 55%; }
+     /* Optional: Hide one image */
+     /* #second-img { display: none; } */
+
+     .key-features .container {
+         width: calc(100% - 1rem); /* Single column */
+         margin: 0 auto 1.5rem auto; /* Center single column */
+     }
+     .key-header h2 { font-size: 1.5rem; }
+     .key-header { margin: 2rem 0 1rem 0; }
+}
+
+/* --- Very Small Mobile Screens (<= 360px) --- */
+@media screen and (max-width: 360px) {
+    #first_tag { font-size: 1.4rem; }
+    .header p { font-size: 0.8rem; }
+    .buttons button a {
+        font-size: 0.75rem;
+        padding: 10px 15px;
+    }
+    #image-container {
+        display: none;
+        width: 75%;
+        max-width: 280px;
+    }
+    .key-features .container {
+         padding: 0.8rem;
+    }
+     .key-features .card-content h2 { font-size: 1.1rem; }
+}

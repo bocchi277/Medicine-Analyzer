@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedSphere</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" href="logo.png" type="image/png">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Edu+AU+VIC+WA+NT+Arrows:wght@400..700&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Oxanium:wght@200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Protest+Revolution&family=Rubik:ital,wght@0,300..900;1,300..900&family=Sixtyfour+Convergence&family=Tiny5&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="bg.css">
+    <link rel="stylesheet" href="loader.css">
+    <style>
+        .layer-blur {
+            height: 0;
+            width: 30rem;
+            z-index: -1;
+            position: absolute;
+            top: 46%;
+            right: 10%;
+            box-shadow: 0 0 900px 25px white;
+            rotate: 10deg;
+        }
+
+        /* Add these styles to your existing style.css */
+
+        .compare-container h2{
+            color: rgba(255, 255, 58, 0.73);
+            font-size: 2rem;
+            font-family: 'Poppins';
+            padding: 10px;
+        }
+        .compare-container p{
+            color: white;
+            padding: 20px;
+        }
+        .drug-compare-section {
+            /* Adjust padding/margin as needed, similar to the search section */
+            padding: 20px;
+            max-width: 900px;
+            /* Slightly wider for comparison */
+            margin-left: auto;
+            margin-right: auto;
+            position: absolute;
+            top: 15vh;
+            left: 23%;
+            z-index: 2;
+            color: var(--text-color, #333);
+            margin-bottom: 60px;
+            /* Space below the comparison section */
+        }
+
+        .compare-box {
+            display: flex;
+            align-items: center;
+            /* Vertically align items */
+            gap: 20px;
+            /* Space between inputs and VS */
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            /* Allow wrapping */
+            justify-content: center;
+            /* Center items when wrapped */
+        }
+
+        .input-wrapper {
+            position: relative;
+            /* Needed for absolute positioning of animation span */
+            flex-grow: 1;
+            /* Allow inputs to grow */
+            min-width: 200px;
+            /* Ensure inputs are not too small */
+        }
+
+        .drug-compare-section input[type="text"] {
+            width: 100%;
+            /* Make input fill its wrapper */
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1em;
+            outline: none;
+            background-color: #00000045;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+
+        .drug-compare-section input[type="text"]:focus {
+            background: rgb(227, 227, 227);
+            color: black;
+            /* Less transparent on focus */
+        }
+
+
+        /* Border Animation */
+        .input-border-animation {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            /* Starts with zero width */
+            height: 2px;
+            /* Thickness of the animated border */
+            background: linear-gradient(90deg, var(--primary-color, #007bff), var(--accent-color, #00c6ff));
+            /* Gradient color */
+            transition: width 0.7s ease-out;
+            /* Animation duration and timing */
+        }
+
+        .input-wrapper input:focus+.input-border-animation {
+            width: 100%;
+            /* Expand to full width on focus */
+        }
+
+
+        .compare-vs {
+            font-family: 'Rubik', sans-serif;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--primary-color, #007bff);
+            flex-shrink: 0;
+            /* Prevent VS from shrinking */
+        }
+
+        #compare-button {
+            padding: 12px 20px;
+            background-color: var(--accent-color, #00c6ff);
+            /* Use a different color for contrast */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+            /* Prevent button from shrinking */
+        }
+
+        #compare-button i {
+            font-size: 1.2em;
+        }
+
+        #compare-button:hover {
+            background-color: var(--accent-dark-color, #0099cc);
+        }
+
+        #compare-button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="main-content">
+        <div class="background">
+            <div class="context">
+            </div>
+            <div class="area">
+                <ul class="circles">
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                </ul>
+            </div>
+        </div>
+        <div class="layer-blur"></div>
+
+        <header>
+            <nav>
+                <div class="sidebar">
+                    <div class="logo-content">
+                        <div class="logo">
+                            <img src="logo.png" alt="" class="log">
+                            <span>MedSphere</span>
+                            <i class='bx bx-menu' id="btn"></i>
+                        </div>
+                    </div>
+                    <ul>
+                        <li><a href="index.html">
+                                <i class='bx bx-home-smile'></i>
+                                <span class="nav-item">Home</span>
+                            </a></li>
+                        <li><a href="about.html">
+                                <i class='bx bxs-contact'></i>
+                                <span class="nav-item">About</span>
+                            </a></li>
+                        <li><a href="index.html#key-header">
+                                <i class='bx bx-analyse'></i>
+                                <span class="nav-item">Medicine Analyzer</span>
+                            </a></li>
+                        <li><a href="">
+                                <i class='bx bxs-color'></i>
+                                <span class="nav-item">Learn More</span>
+                            </a></li>
+                    </ul>
+                </div>
+            </nav>
+        </header>
+        <div class="drug-compare-section">
+            <div class="compare-container">
+                <h2>Uncover the Differences: Compare Any Two Medicines</h2>
+                <p class="subheading">Dive deep into the details and compare pharmaceutical information side-by-side.
+                </p>
+                <div class="compare-box">
+                    <div class="input-wrapper">
+                        <input type="text" id="drug-name-input-1" placeholder="Enter first drug name">
+                        <span class="input-border-animation"></span>
+                    </div>
+                    <span class="compare-vs">VS</span>
+                    <div class="input-wrapper">
+                        <input type="text" id="drug-name-input-2" placeholder="Enter second drug name">
+                        <span class="input-border-animation"></span>
+                    </div>
+                    <button id="compare-button">
+                        <i class='bx bx-git-compare'></i> Compare
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    let btn = document.querySelector("#btn")
+    let sidebar = document.querySelector(".sidebar")
+    let navItems = document.querySelectorAll(".nav-item")
+    btn.onclick = function () {
+        sidebar.classList.toggle("active")
+        navItems.forEach(item => {
+            item.classList.toggle("active");
+        });
+    }
+    window.addEventListener('load', () => {
+        const preloader = document.getElementById('preloader');
+        const content = document.getElementById('main-content');
+
+        preloader.classList.add('hidden');
+        setTimeout(() => {
+            preloader.style.display = 'none';
+            content.style.display = 'block';
+        }, 500); // match transition duration
+    });
+    document.getElementById('compare-button').addEventListener('click', async () => {
+        const drugNameInput1 = document.getElementById('drug-name-input-1');
+        const drugNameInput2 = document.getElementById('drug-name-input-2');
+
+        const drugName1 = drugNameInput1.value.trim();
+        const drugName2 = drugNameInput2.value.trim();
+
+        if (!drugName1 || !drugName2 ) {
+            compareResultsDiv.innerHTML = '<p class="error-message">Please enter names for both drugs to compare.</p>';
+            return;
+        }
+        const newPageUrl = `compare2.html?drug1=${encodeURIComponent(drugName1)}&drug2=${encodeURIComponent(drugName2)}`;
+        window.location.href = newPageUrl;
+    })
+    // Before navigating from page1
+localStorage.setItem("lastSearch", document.getElementById("search").value);
+
+// On load in page1
+window.onload = function() {
+  const lastSearch = localStorage.getItem("lastSearch");
+  if (lastSearch) {
+    document.getElementById("search").value = lastSearch;
+    // Re-render previous content if needed
+  }
+};
+</script>
+
+</html>

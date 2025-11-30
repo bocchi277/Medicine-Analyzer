@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedSphere</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Edu+AU+VIC+WA+NT+Arrows:wght@400..700&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Oxanium:wght@200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Protest+Revolution&family=Rubik:ital,wght@0,300..900;1,300..900&family=Sixtyfour+Convergence&family=Tiny5&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="bg.css">
+    <style>
+        :root {
+            --primary: #6e45e2;
+            --primary-light: #9b72ff;
+            --secondary: #88d3ce;
+            --text: #e6e6e6;
+            --text-light: #b3b3b3;
+            --bg: #0f0f1a;
+            --card-bg: rgba(30, 30, 46, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            color: var(--text);
+            background-color: var(--bg);
+            overflow-x: hidden;
+        }
+
+        /* Search Section */
+        .search-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            max-width: 600px;
+            padding: 0 20px;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        .search-container.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: translate(-50%, -60%);
+        }
+
+        .search-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+
+        .search-subtitle {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .search-box {
+            display: flex;
+            background: rgba(30, 30, 46, 0.7);
+            border-radius: 50px;
+            padding: 5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+        }
+
+        #drug-name-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        #drug-name-input::placeholder {
+            color: var(--text-light);
+        }
+
+        #search-button {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 0 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #search-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(110, 69, 226, 0.4);
+        }
+
+        /* Loader */
+        .loader-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(15, 15, 26, 0.8);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loader-container.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Drug Details Section */
+        .drug-details-container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 20px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .drug-details-container.active {
+            position: absolute;
+            left: 10%;
+            top: 100vh;
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .drug-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .drug-name {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .drug-class {
+            color: var(--secondary);
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .drug-description {
+            max-width: 800px;
+            line-height: 1.6;
+            color: var(--text-light);
+        }
+
+        /* Drug Info Cards */
+        .drug-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .drug-structure-card {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+
+        .structure-image-container {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .structure-image {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+        }
+
+        .basic-info {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .info-item {
+            margin-bottom: 15px;
+        }
+
+        .info-label {
+            color: var(--secondary);
+            font-weight: 500;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .info-value {
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .not-available {
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        /* Interactive Tabs */
+        .tabs-container {
+            margin-top: 20px;
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+        }
+
+        .tabs-header::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-light);
+            padding: 12px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            box-shadow: 0 5px 15px rgba(110, 69, 226, 0.3);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .search-title {
+                font-size: 2rem;
+            }
+
+            .search-subtitle {
+                font-size: 1rem;
+            }
+
+            .drug-name {
+                font-size: 2rem;
+            }
+
+            .drug-structure-card {
+                flex-direction: column;
+            }
+
+            .structure-image-container {
+                min-width: 100%;
+            }
+
+            .basic-info {
+                min-width: 100%;
+            }
+
+            .tabs-header {
+                gap: 5px;
+            }
+
+            .tab-button {
+                padding: 10px 15px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Existing background styles */
+        .layer-blur {
+            height: 0;
+            width: 30rem;
+            z-index: -1;
+            position: absolute;
+            top: 46%;
+            right: 10%;
+            box-shadow: 0 0 900px 25px white;
+            rotate: 10deg;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .context {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .area {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .circles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+        }
+
+        .circles li {
+            position: absolute;
+            display: block;
+            list-style: none;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            animation: animate 25s linear infinite;
+            bottom: -150px;
+        }
+
+        @keyframes animate {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+                border-radius: 0;
+            }
+
+            100% {
+                transform: translateY(-1000px) rotate(720deg);
+                opacity: 0;
+                border-radius: 50%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .search-bar {
+                position: relative;
+                top: unset;
+                margin: 10px 0;
+            }
+        }
+
+        .header {
+            z-index: 100;
+        }
+
+        .search-bar {
+            z-index: 50;
+        }
+
+        .drug-info-container {
+            padding: 20px;
+        }
+        nav .sidebar{
+            background-color: rgba(0, 0, 0, 0.125);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Existing background elements -->
+    <div class="background">
+        <div class="context"></div>
+        <div class="area">
+            <ul class="circles">    
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+                <li></li>
+            </ul>
+        </div>
+    </div>
+    <div class="layer-blur"></div>
+
+    <!-- Header/Sidebar (preserved from original) -->
+    <header>
+        <nav>
+            <div class="sidebar">
+                <div class="logo-content">
+                    <div class="logo">
+                        <img src="logo.png" alt="" class="log">
+                        <span>MedSphere</span>
+                        <i class='bx bx-menu' id="btn"></i>
+                    </div>
+                </div>
+                <ul>
+                    <li><a href="index.html">
+                            <i class='bx bx-home-smile'></i>
+                            <span class="nav-item">Home</span>
+                        </a></li>
+                    <li><a href="about.html">
+                            <i class='bx bxs-contact'></i>
+                            <span class="nav-item">About</span>
+                        </a></li>
+                    <li><a href="index.html#feature">
+                            <i class='bx bx-analyse'></i>
+                            <span class="nav-item">Medicine Analyzer</span>
+                        </a></li>
+                    <li><a href="">
+                            <i class='bx bxs-color'></i>
+                            <span class="nav-item">Learn More</span>
+                        </a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <!-- Search Container - Always visible -->
+        <div class="search-container" id="search-container">
+            <h1 class="search-title">Drug Information Finder</h1>
+            <p class="search-subtitle">Search for detailed pharmaceutical information on any medication</p>
+            <div class="search-box">
+                <input type="text" id="drug-name-input" placeholder="Enter drug name (e.g., Aspirin)">
+                <button id="search-button">
+                    <i class='bx bx-search-alt'></i> Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader-container" id="loader">
+            <div class="loader"></div>
+        </div>
+
+        <!-- Drug Details Container -->
+        <div class="drug-details-container" id="drug-details-container">
+            <div class="drug-header">
+                <h1 class="drug-name" id="drug-name"></h1>
+                <div class="drug-class" id="drug-class"></div>
+                <div class="drug-description" id="drug-description"></div>
+            </div>
+
+            <!-- Structure and Basic Info Card -->
+            <div class="drug-card drug-structure-card">
+                <div class="structure-image-container">
+                    <img src="" alt="2D Structure" class="structure-image" id="structure-image">
+                </div>
+                <div class="basic-info">
+                    <div class="info-item">
+                        <span class="info-label">Generic Name</span>
+                        <span class="info-value" id="generic-name"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Brand Name</span>
+                        <span class="info-value" id="brand-name"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Half-life</span>
+                        <span class="info-value" id="half-life"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Protein Binding</span>
+                        <span class="info-value" id="protein-binding"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Routes of Administration</span>
+                        <span class="info-value" id="routes"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Tabs Card -->
+            <div class="drug-card">
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-button active" data-tab="mechanism">Mechanism</button>
+                        <button class="tab-button" data-tab="indication">Indication</button>
+                        <button class="tab-button" data-tab="pharmacodynamics">Pharmacodynamics</button>
+                        <button class="tab-button" data-tab="metabolism">Metabolism</button>
+                    </div>
+
+                    <div class="tab-content active" id="mechanism-tab">
+                        <div class="info-value" id="mechanism-content"></div>
+                    </div>
+
+                    <div class="tab-content" id="indication-tab">
+                        <div class="info-value" id="indication-content"></div>
+                    </div>
+
+                    <div class="tab-content" id="pharmacodynamics-tab">
+                        <div class="info-value" id="pharmacodynamics-content"></div>
+                    </div>
+
+                    <div class="tab-content" id="metabolism-tab">
+                        <div class="info-value" id="metabolism-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sidebar toggle functionality
+        let btn = document.querySelector("#btn");
+        let sidebar = document.querySelector(".sidebar");
+        let navItems = document.querySelectorAll(".nav-item");
+
+        btn.onclick = function () {
+            sidebar.classList.toggle("active");
+            navItems.forEach(item => {
+                item.classList.toggle("active");
+            });
+        };
+
+        // Drug Search Functionality
+        document.getElementById('search-button').addEventListener('click', async () => {
+            const drugNameInput = document.getElementById('drug-name-input');
+            const drugName = drugNameInput.value.trim();
+
+            if (!drugName) {
+                alert('Please enter a drug name');
+                return;
+            }
+
+            // Show loader but don't hide search container
+            document.getElementById('loader').classList.add('active');
+
+            try {
+                // Call the API
+                const drugData = await fetchDrugData(drugName);
+
+                if (drugData.error) {
+                    alert(drugData.error);
+                    return;
+                }
+
+                // Update UI with drug data
+                updateDrugDetails(drugData);
+
+                // Show drug details container
+                document.getElementById('drug-details-container').classList.add('active');
+
+                // Scroll to results
+                document.getElementById('drug-details-container').scrollIntoView({
+                    behavior: 'smooth'
+                });
+
+            } catch (error) {
+                console.error('Error fetching drug data:', error);
+                alert('Failed to fetch drug information. Please try again.');
+            } finally {
+                // Hide loader
+                document.getElementById('loader').classList.remove('active');
+            }
+        });
+
+        // Tab functionality
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons and tabs
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+
+                // Add active class to clicked button and corresponding tab
+                button.classList.add('active');
+                const tabId = button.getAttribute('data-tab') + '-tab';
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Function to fetch drug data from API
+        async function fetchDrugData(drugName) {
+            const apiUrl = `https://adb2-2409-40e3-3d-ee57-3116-fa86-8e83-c758.ngrok-free.app/api/drug_details?name=${encodeURIComponent(drugName)}`; // Example endpoint
+
+
+            try {
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Check if drug was not found
+                if (data.name === "" || !data.name) {
+                    return { error: `No information found for "${drugName}"` };
+                }
+
+                return data;
+
+            } catch (error) {
+                console.error('API Error:', error);
+                return { error: 'Failed to fetch drug information. Please try again later.' };
+            }
+        }
+
+        // Function to update the UI with drug data
+        function updateDrugDetails(drugData) {
+            // Helper function to format "Not Available" data
+            const formatData = (value) => {
+                return value === "Not Available" || !value ?
+                    '<span class="not-available">Not Available</span>' :
+                    value;
+            };
+
+            // Basic info
+            document.getElementById('drug-name').textContent = drugData.name || 'Unknown Drug';
+            document.getElementById('generic-name').innerHTML = formatData(drugData.generic_name);
+            document.getElementById('brand-name').innerHTML = formatData(drugData.brand_name);
+            document.getElementById('drug-description').textContent = drugData.description || 'No description available';
+
+            // Additional info
+            document.getElementById('half-life').innerHTML = formatData(drugData.half_life);
+            document.getElementById('protein-binding').innerHTML = formatData(drugData.protein_binding);
+            document.getElementById('routes').innerHTML = formatData(drugData.routes_of_administration);
+
+            // Tab contents
+            document.getElementById('mechanism-content').innerHTML = formatMechanism(drugData.mechanism || 'Not Available');
+            document.getElementById('indication-content').innerHTML = formatData(drugData.indication);
+            document.getElementById('pharmacodynamics-content').innerHTML = formatData(drugData.pharmacodynamics);
+            document.getElementById('metabolism-content').innerHTML = formatData(drugData.metabolism);
+
+            // Update structure image if SMILES is available
+            if (drugData.smiles && drugData.smiles !== "Not Available") {
+                document.getElementById('structure-image').src =
+                    `https://cactus.nci.nih.gov/chemical/structure/${encodeURIComponent(drugData.smiles)}/image`;
+                document.getElementById('structure-image').alt = `2D Structure of ${drugData.name}`;
+            } else {
+                document.getElementById('structure-image').src = '';
+                document.getElementById('structure-image').alt = 'Structure not available';
+                document.querySelector('.structure-image-container').innerHTML =
+                    '<span class="not-available">Structure not available</span>';
+            }
+        }
+
+        // Helper function to format mechanism text
+        function formatMechanism(mechanismText) {
+            if (mechanismText === "Not Available") {
+                return '<span class="not-available">Not Available</span>';
+            }
+
+            // Split by target actions if present
+            const parts = mechanismText.split('TARGET ACTIONS ORGANISM');
+            let formatted = parts[0];
+
+            if (parts.length > 1) {
+                formatted += '<br><br><strong>Target Actions:</strong><br>';
+                const actions = parts[1].split('\r\n').filter(line => line.trim() !== '');
+
+                actions.forEach(action => {
+                    // Clean up the action line
+                    let cleanAction = action.replace(/^[AU]/, '').trim();
+                    // Extract organism if present
+                    const organismMatch = cleanAction.match(/\((.*?)\)$/);
+                    let organism = '';
+                    if (organismMatch) {
+                        organism = ` (${organismMatch[1]})`;
+                        cleanAction = cleanAction.replace(organismMatch[0], '');
+                    }
+
+                    formatted += `• ${cleanAction}${organism}<br>`;
+                });
+            }
+
+            return formatted;
+        }
+
+        // Handle Enter key in search input
+        document.getElementById('drug-name-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                document.getElementById('search-button').click();
+            }
+        });
+    </script>
+</body>
+
+</html>

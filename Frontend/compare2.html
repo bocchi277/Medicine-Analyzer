@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Comparison - Molecular Insights</title>
+    <style>
+        :root {
+            --primary: #ff7b54;
+            --secondary: #3a86ff;
+            --dark: #1a1a1a;
+            --light: #f5f5f5;
+            --gray: #888;
+            --border-radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--dark);
+            color: white;
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 20%),
+                radial-gradient(circle at 80% 60%, rgba(255, 255, 255, 0.03) 0%, transparent 20%);
+            background-size: 100% 100%;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .logo .triangle {
+            color: var(--primary);
+        }
+
+        .drug-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .drug-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .drug-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .drug-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.1) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .left-drug .drug-header {
+            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.1) 100%);
+        }
+
+        .right-drug .drug-header {
+            background: linear-gradient(135deg, rgba(58, 134, 255, 0.2) 0%, rgba(255, 123, 84, 0.1) 100%);
+        }
+
+        .drug-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .drug-id {
+            font-size: 1rem;
+            opacity: 0.7;
+            margin-bottom: 1rem;
+        }
+
+        .drug-indication {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .molecule-image {
+            width: 100%;
+            height: 200px;
+            background-color: rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .molecule-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .properties-selector {
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .select-property {
+            display: inline-block;
+            margin: 0 auto;
+        }
+
+        select {
+            background-color: rgba(0, 0, 0, 0.3);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .details-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 200px;
+        }
+
+        .details-card h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .property-item {
+            margin-bottom: 1rem;
+        }
+
+        .property-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 0.25rem;
+        }
+
+        .property-value {
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .not-available {
+            opacity: 0.5;
+            font-style: italic;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+
+        .button {
+            background-color: transparent;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .button-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .button-primary:hover {
+            background-color: rgba(255, 123, 84, 0.8);
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            opacity: 0.6;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .drug-grid,
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .comparison-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .similarity-card {
+            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.2) 100%);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .similarity-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .similarity-info h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .similarity-percentage {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .similarity-percentage .percentage {
+            font-size: 2rem;
+            opacity: 0.8;
+        }
+
+        .molecule-viz {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .molecule-viz::before {
+            content: "";
+            position: absolute;
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            animation: rotate 15s linear infinite;
+        }
+
+        .molecule-viz::after {
+            content: "";
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            border: 2px dashed rgba(58, 134, 255, 0.5);
+            animation: rotate 10s linear infinite reverse;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .properties-slider {
+    margin: 2rem 0;
+    text-align: center;
+}
+
+.slider-container {
+    width: 80%;
+    margin: 0 auto;
+    position: relative;
+}
+
+.slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    margin: 1rem 0;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+.slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    border: 2px solid white;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.slider-labels span {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    width: 20%;
+    text-align: center;
+}
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="logo">
+            <span class="triangle">Δ</span> Molecular Drug Comparison
+        </div>
+        
+        <div class="comparison-container">
+            <div class="similarity-card">
+                <div class="similarity-info">
+                    <h2>Drug Similarity Analysis</h2>
+                    <p>Based on molecular structure and pharmacological properties</p>
+                    <div class="similarity-percentage">
+                        <span id="similarityValue">94.43</span>
+                        <span class="percentage">%</span>
+                    </div>
+                </div>
+                <div class="molecule-viz"></div>
+            </div>
+        <!-- First Row: Basic Drug Info with Indication and Structure -->
+        <div class="drug-grid">
+            <div class="drug-card left-drug">
+                <div class="drug-header">
+                    <div class="drug-name" id="drug1Name">Loading...</div>
+                    <div class="drug-id" id="drug1Id">-</div>
+
+                </div>
+                <div class="molecule-image">
+                    <img id="drug1Structure" alt="Drug 1 molecular structure">
+                </div>
+                <div class="drug-indication" id="drug1Indication">
+                    Loading indication...
+                </div>
+
+            </div>
+
+            <div class="drug-card right-drug">
+                <div class="drug-header">
+                    <div class="drug-name" id="drug2Name">Loading...</div>
+                    <div class="drug-id" id="drug2Id">-</div>
+                </div>
+                <div class="molecule-image">
+                    <img id="drug2Structure" alt="Drug 2 molecular structure">
+                </div>
+                <div class="drug-indication" id="drug2Indication">
+                    Loading indication...
+                </div>
+
+            </div>
+        </div>
+        </div>
+
+        <div class="properties-slider">
+            <div class="slider-container">
+                <input type="range" min="0" max="4" value="0" class="slider" id="propertySlider">
+                <div class="slider-labels">
+                    <span>Mechanism</span>
+                    <span>Half Life</span>
+                    <span>Protein Binding</span>
+                    <span>Synonyms</span>
+                    <span>SMILES</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Row: Detailed Property Comparison -->
+        <div class="details-grid">
+            <div class="details-card left-drug">
+                <h3>Drug 1 Details</h3>
+                <div id="drug1Details">
+                    <div class="property-item">
+                        <div class="property-value not-available">Select a property from above</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-card right-drug">
+                <h3>Drug 2 Details</h3>
+                <div id="drug2Details">
+                    <div class="property-item">
+                        <div class="property-value not-available">Select a property from above</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="button" id="backButton">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Back to Search
+            </button>
+            <button class="button button-primary" id="downloadButton">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 15V3M12 15L8 11M12 15L16 11M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Download Full Data
+            </button>
+        </div>
+
+        <footer>
+            <p>© 2025 Molecular Drug Comparison — Compare drugs with detailed insights.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+// Store the API data globally for download functionality
+let drugComparisonData = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Get drug names from URL query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const drugName1 = urlParams.get('drug1');
+    const drugName2 = urlParams.get('drug2');
+
+    // Basic validation
+    if (!drugName1 || !drugName2) {
+        alert('Error: Drug names not provided for comparison.');
+        return;
+    }
+
+    // Construct the API URL
+    const apiUrl = `https://adb2-2409-40e3-3d-ee57-3116-fa86-8e83-c758.ngrok-free.app/api/compare_medicines?name1=${encodeURIComponent(drugName1)}&name2=${encodeURIComponent(drugName2)}`;
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server responded with status ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data || !data.drug1 || !data.drug2 || data.error) {
+            throw new Error(data?.error || 'Invalid data format received');
+        }
+
+        // Store the data for download
+        drugComparisonData = data;
+
+        // Populate basic drug info
+        populateBasicInfo(data);
+
+        // Set up slider event listener
+        const propertySlider = document.getElementById('propertySlider');
+        propertySlider.addEventListener('input', function() {
+            const properties = ['mechanism', 'half_life', 'protein_binding', 'synonyms', 'smiles'];
+            const selectedProperty = properties[this.value];
+            updatePropertyDetails(selectedProperty, data);
+        });
+
+        // Initialize with first property
+        updatePropertyDetails('mechanism', data);
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while fetching drug data: ' + error.message);
+        
+        // Set placeholder data in case of error
+        document.getElementById('drug1Name').textContent = drugName1;
+        document.getElementById('drug2Name').textContent = drugName2;
+        document.getElementById('drug1Indication').textContent = 'Failed to load indication';
+        document.getElementById('drug2Indication').textContent = 'Failed to load indication';
+    }
+});
+
+function populateBasicInfo(data) {
+    // Update drug names and IDs
+    document.getElementById('drug1Name').textContent = data.drug1.name || 'Not Available';
+    document.getElementById('drug1Id').textContent = data.drug1.drug_id || 'Not Available';
+    document.getElementById('drug1Indication').textContent = data.drug1.indication || 'Not Available';
+    
+    document.getElementById('drug2Name').textContent = data.drug2.name || 'Not Available';
+    document.getElementById('drug2Id').textContent = data.drug2.drug_id || 'Not Available';
+    document.getElementById('drug2Indication').textContent = data.drug2.indication || 'Not Available';
+
+    // Generate molecular structure images from SMILES using NIH API
+    if (data.drug1.smiles) {
+        const smiles1 = encodeURIComponent(data.drug1.smiles);
+        document.getElementById('drug1Structure').src = 
+            `https://cactus.nci.nih.gov/chemical/structure/${smiles1}/image?format=svg&width=300&height=200`;
+    }
+    
+    if (data.drug2.smiles) {
+        const smiles2 = encodeURIComponent(data.drug2.smiles);
+        document.getElementById('drug2Structure').src = 
+            `https://cactus.nci.nih.gov/chemical/structure/${smiles2}/image?format=svg&width=300&height=200`;
+    }
+}
+
+function updatePropertyDetails(selectedProperty, data) {
+    const propertyLabels = {
+        'mechanism': 'Mechanism of Action',
+        'half_life': 'Half Life',
+        'protein_binding': 'Protein Binding',
+        'synonyms': 'Synonyms',
+        'smiles': 'SMILES Notation'
+    };
+
+    // Get property values
+    const drug1Value = data.drug1[selectedProperty] || 'Not Available';
+    const drug2Value = data.drug2[selectedProperty] || 'Not Available';
+
+    // Get property label based on selected value
+    const propertyLabel = propertyLabels[selectedProperty] || selectedProperty;
+
+    // Update drug 1 details
+    const drug1Details = document.getElementById('drug1Details');
+    drug1Details.innerHTML = `
+        <div class="property-item">
+            <div class="property-label">${propertyLabel}</div>
+            <div class="property-value ${drug1Value === 'Not Available' ? 'not-available' : ''}">
+                ${drug1Value}
+            </div>
+        </div>
+    `;
+
+    // Update drug 2 details
+    const drug2Details = document.getElementById('drug2Details');
+    drug2Details.innerHTML = `
+        <div class="property-item">
+            <div class="property-label">${propertyLabel}</div>
+            <div class="property-value ${drug2Value === 'Not Available' ? 'not-available' : ''}">
+                ${drug2Value}
+            </div>
+        </div>
+    `;
+}
+
+// Download button functionality
+document.getElementById('downloadButton').addEventListener('click', function() {
+    if (!drugComparisonData) {
+        alert('No drug data available to download.');
+        return;
+    }
+
+    // Create a formatted text report
+    let reportContent = `Drug Comparison Report\n`;
+    reportContent += `Generated on: ${new Date().toLocaleString()}\n\n`;
+    
+    // Add drug 1 info
+    reportContent += `=== DRUG 1 ===\n`;
+    reportContent += `Name: ${drugComparisonData.drug1.name || 'Not Available'}\n`;
+    reportContent += `Drug ID: ${drugComparisonData.drug1.drug_id || 'Not Available'}\n`;
+    reportContent += `Indication: ${drugComparisonData.drug1.indication || 'Not Available'}\n\n`;
+    
+    // Add drug 2 info
+    reportContent += `=== DRUG 2 ===\n`;
+    reportContent += `Name: ${drugComparisonData.drug2.name || 'Not Available'}\n`;
+    reportContent += `Drug ID: ${drugComparisonData.drug2.drug_id || 'Not Available'}\n`;
+    reportContent += `Indication: ${drugComparisonData.drug2.indication || 'Not Available'}\n\n`;
+    
+    // Add all properties
+    reportContent += `=== DETAILED PROPERTIES ===\n`;
+    const properties = [
+        { label: 'Mechanism of Action', key: 'mechanism' },
+        { label: 'Half Life', key: 'half_life' },
+        { label: 'Protein Binding', key: 'protein_binding' },
+        { label: 'Synonyms', key: 'synonyms' },
+        { label: 'SMILES Notation', key: 'smiles' }
+    ];
+    
+    properties.forEach(prop => {
+        const drug1Value = drugComparisonData.drug1[prop.key] || 'Not Available';
+        const drug2Value = drugComparisonData.drug2[prop.key] || 'Not Available';
+        
+        reportContent += `\n${prop.label}:\n`;
+        reportContent += `  Drug 1: ${drug1Value}\n`;
+        reportContent += `  Drug 2: ${drug2Value}\n`;
+    });
+
+    // Create download link
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `drug_comparison_${drugComparisonData.drug1.name}_vs_${drugComparisonData.drug2.name}.txt`;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+});
+
+// Back button functionality
+document.getElementById('backButton').addEventListener('click', function() {
+    window.location.href = 'compare_page.html'; // Update with your actual search page
+});
+    </script>
+</body>
+
+</html>
