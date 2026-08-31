@@ -13,11 +13,16 @@
 (function (global) {
   'use strict';
 
-  // >>> EDIT THIS after the API is deployed. <<<
-  // Still the default value below? Then the deployed site is pointing at a URL
-  // that probably isn't yours, and every request will fail.
+  // >>> EDIT THIS LINE ONLY. <<<
   var PRODUCTION_API_BASE = 'https://medicine-analyzer-qd2t.onrender.com';
-  var DEFAULT_PRODUCTION_API_BASE = 'https://medicine-analyzer-qd2t.onrender.com';
+
+  // >>> DO NOT EDIT THE LINE BELOW. <<<
+  // This is a fixed sentinel, not configuration. It records the original
+  // placeholder value so the code can tell "the URL was never set" apart from
+  // "the URL is set but the server is down", and report the right thing. If it
+  // is edited to match PRODUCTION_API_BASE, every failure is misreported as an
+  // unset placeholder.
+  var DEFAULT_PRODUCTION_API_BASE = 'https://medsphere-api.onrender.com';
 
   var LOCAL_API_BASE = 'http://127.0.0.1:8000';
 
@@ -122,9 +127,30 @@
           'your own Render URL and redeploy.'
         );
       }
-      throw new Error(
-        (payload && payload.error) || ('Request failed with status ' + response.status)
-      );
+
+      // Our API always sends {"error": "..."} with a failure status, so a JSON
+      // error body means we really did reach it.
+      if (payload && payload.error) {
+        throw new Error(payload.error);
+      }
+
+      // No JSON body: the reply came from something in front of the API rather
+      // than the API itself. Render's edge returns a plain 404 with
+      // "x-render-routing: no-server" when no service is running at the URL,
+      // and 502/503 while one is booting or crash-looping.
+      if (response.status === 404) {
+        throw new Error(
+          'No server is responding at ' + base + '. The API may not be deployed ' +
+          'yet, or its URL may have changed.'
+        );
+      }
+      if (response.status === 502 || response.status === 503) {
+        throw new Error(
+          'The server is starting up or unavailable. Free instances take about a ' +
+          'minute to wake — try again shortly.'
+        );
+      }
+      throw new Error('Request failed with status ' + response.status);
     }
     if (payload && payload.error) {
       throw new Error(payload.error);

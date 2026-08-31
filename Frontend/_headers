@@ -1,0 +1,28 @@
+# Netlify security headers.
+#
+# This file lives in the published folder rather than in netlify.toml on
+# purpose. A netlify.toml "publish" setting is resolved relative to the site's
+# Base directory, which is already set to "Frontend" in the dashboard — so
+# publish = "Frontend" became "Frontend/Frontend" and broke the build. A
+# _headers file is read from the deploy directory itself, so it works whatever
+# the base and publish settings are.
+#
+# Netlify already sends Strict-Transport-Security; these are the ones it does
+# not set by default.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+
+# A full CSP is deliberately not set: every page carries inline <style> and
+# inline <script>, so any workable script-src/style-src policy would need
+# 'unsafe-inline' and would buy very little.
+
+/*.css
+  Cache-Control: public, max-age=3600
+
+/*.js
+  Cache-Control: public, max-age=3600
