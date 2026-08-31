@@ -1,0 +1,12 @@
+# Build-only dependencies. Install these LOCALLY to regenerate the FAISS index:
+#
+#     pip install -r requirements-build.txt
+#     python build_index.py
+#
+# Never install these on the web server. sentence-transformers pulls in PyTorch,
+# which costs roughly 400 MB of resident memory on import alone -- more than the
+# entire 512 MB budget of a Render free instance.
+
+-r requirements.txt
+
+sentence-transformers==6.0.1

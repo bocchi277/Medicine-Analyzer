@@ -118,10 +118,10 @@ function setupSearchPage() {
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
+            tabs.forEach(t => t.classList.remove('active', 'is-active'));
             tabContents.forEach(content => content.classList.remove('active'));
             
-            tab.classList.add('active');
+            tab.classList.add('active', 'is-active');
             const tabId = tab.dataset.tab;
             document.getElementById(tabId).classList.add('active');
         });
@@ -133,10 +133,11 @@ function setupSearchPage() {
         const searchTerm = medicineSearch.value.trim();
         
         if (!searchTerm) {
-            alert('Please enter a medicine name to search.');
+            showMessage('Please enter a medicine name to search.', 'warning');
             return;
         }
         
+        clearMessage();
         loadingElement.style.display = 'block';
         drugInfoSection.style.display = 'none';
         alternativesSection.style.display = 'none';
@@ -154,7 +155,11 @@ function setupSearchPage() {
         } catch (error) {
             console.error('Error fetching drug data:', error);
             loadingElement.style.display = 'none';
-            alert('Failed to fetch drug data. Please try again.');
+            // Surface the backend's own message ("not found", rate limited,
+            // server asleep) rather than a generic failure string.
+            showMessage(error && error.message
+                ? error.message
+                : 'Failed to fetch drug data. Please try again.', 'error');
         }
     });
 
@@ -162,7 +167,7 @@ function setupSearchPage() {
     if (downloadBtn) {
         downloadBtn.addEventListener('click', async () => {
             if (!currentDrugName) {
-                alert('No drug data to download. Please search for a drug first.');
+                showMessage('Search for a drug before downloading its data.', 'warning');
                 return;
             }
             
@@ -173,7 +178,7 @@ function setupSearchPage() {
             } catch (error) {
                 console.error('Error downloading drug data:', error);
                 downloadBtn.textContent = 'Download Data';
-                alert('Failed to download drug data. Please try again.');
+                showMessage(error && error.message ? error.message : 'Failed to download drug data. Please try again.', 'error');
             }
         });
     }
@@ -204,34 +209,7 @@ function showSuggestions(suggestions) {
 
 // Fetch drug data from API
 async function fetchDrugData(drugName) {
-    const apiUrl = `https://adb2-2409-40e3-3d-ee57-3116-fa86-8e83-c758.ngrok-free.app/api/get_alternative?name=${encodeURIComponent(drugName)}`;
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'GET', // Assuming it's a GET request based on the URL structure
-            headers: {
-                // Add the ngrok-skip-browser-warning header
-                'ngrok-skip-browser-warning': 'true'
-                // Add other headers if needed by this specific API endpoint
-            }
-        });
-
-        if (!response.ok) {
-            // Throw an error with more details if the response status is not OK
-            const errorBody = await response.text(); // Attempt to get the response body for debugging
-            const errorMessage = `Failed to fetch drug data for ${drugName}: Server returned status ${response.status}.`;
-            console.error(errorMessage, 'Response body:', errorBody);
-            throw new Error(errorMessage);
-        }
-
-        // Return the JSON data
-        return await response.json();
-
-    } catch (error) {
-        // Log the error and re-throw it so the calling code can handle it
-        console.error('Error in fetchDrugData:', error);
-        throw error; // Re-throw the error
-    }
+    return await window.MedSphereConfig.apiFetch('/api/get_alternative', { name: drugName });
 }
 
 // Download drug data
@@ -276,25 +254,27 @@ function updateDrugInfo(data) {
     
     topAlternatives.forEach(alt => {
         const card = document.createElement('div');
-        card.className = 'alternative-card';
+        card.className = 'alternative-card ms-panel';
         card.innerHTML = `
-            <span class="similarity-percentage">${Math.round(alt.similarity_percentage)}% Similar</span>
+            <span class="similarity-percentage ms-badge ms-badge--accent">${Math.round(alt.similarity_percentage)}% Similar</span>
             <h3 class="card-title">${alt.name}</h3>
             <p class="card-subtitle">${alt.generic_name}</p>
             <p class="card-text">${alt.indication || 'No indication information available'}</p>
-            <button class="show-more-btn">Show More</button>
+            <button class="show-more-btn ms-btn ms-btn--ghost ms-btn--sm">Show More</button>
             <div class="card-details">
-                <div class="detail-item">
-                    <div class="detail-label">Drug ID</div>
-                    <div class="detail-value">${alt.drug_id}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Mechanism of Action</div>
-                    <div class="detail-value">${alt.mechanism || 'No mechanism information available'}</div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Pharmacodynamics</div>
-                    <div class="detail-value">${alt.pharmacodynamics || 'No pharmacodynamics information available'}</div>
+                <div class="ms-kv">
+                    <div class="detail-item ms-kv__item">
+                        <div class="detail-label ms-kv__label">Drug ID</div>
+                        <div class="detail-value ms-kv__value">${alt.drug_id}</div>
+                    </div>
+                    <div class="detail-item ms-kv__item">
+                        <div class="detail-label ms-kv__label">Mechanism of Action</div>
+                        <div class="detail-value ms-kv__value">${alt.mechanism || 'No mechanism information available'}</div>
+                    </div>
+                    <div class="detail-item ms-kv__item">
+                        <div class="detail-label ms-kv__label">Pharmacodynamics</div>
+                        <div class="detail-value ms-kv__value">${alt.pharmacodynamics || 'No pharmacodynamics information available'}</div>
+                    </div>
                 </div>
             </div>
         `;
@@ -326,6 +306,55 @@ function updateDrugInfo(data) {
     }
 }
 
+/**
+ * Show a themed, dismissible message instead of a browser alert().
+ *
+ * Browser alerts block the page and look nothing like the rest of the site;
+ * they also encouraged throwing away the backend's own error text, which is
+ * more useful than a generic "failed" string (e.g. "Medicine 'xyx' not found.
+ * Please check the spelling or try a different name.").
+ *
+ * @param {string} message
+ * @param {"error"|"warning"|"success"} [kind="error"]
+ */
+function showMessage(message, kind) {
+    var variant = kind || 'error';
+    var slot = document.getElementById('page-message');
+
+    if (!slot) {
+        slot = document.createElement('div');
+        slot.id = 'page-message';
+        var host = document.querySelector('.ms-shell') || document.querySelector('main') || document.body;
+        var anchor = host.querySelector('.search-section, .ms-panel') || host.firstChild;
+        if (anchor && anchor.parentNode === host) {
+            host.insertBefore(slot, anchor.nextSibling);
+        } else {
+            host.insertBefore(slot, host.firstChild);
+        }
+    }
+
+    slot.className = 'ms-alert ms-alert--' + variant;
+    slot.style.margin = '1.3rem 0';
+    slot.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+    slot.textContent = message;
+    slot.hidden = false;
+
+    if (typeof slot.scrollIntoView === 'function') {
+        slot.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+/** Hide any message currently shown. */
+function clearMessage() {
+    var slot = document.getElementById('page-message');
+    if (slot) slot.hidden = true;
+}
+
+/** Backwards-compatible alias for the themed message helper. */
+function showDetailsError(message) {
+    showMessage(message, 'error');
+}
+
 // Setup for details page
 function setupDetailsPage() {
     // Get drug name from URL parameters
@@ -338,13 +367,27 @@ function setupDetailsPage() {
         fetchDrugData(drugName)
             .then(data => {
                 drugsData = data.similar;
+
+                // Name the drug these alternatives belong to. Use the resolved
+                // target name rather than the raw query, so arriving here from
+                // a brand name ("Ziagen") shows the drug it maps to
+                // ("Abacavir") instead of echoing the search term back.
+                const resolvedName = (data.target && data.target.name) || drugName;
+                const heading = document.getElementById('alternatives-title');
+                if (heading) {
+                    heading.textContent = 'Alternatives to ' + resolvedName;
+                }
+                document.title = 'Alternatives to ' + resolvedName + ' | MedSphere';
+
                 // Render the data
                 renderTableView();
                 renderGraphView();
             })
             .catch(error => {
                 console.error('Error fetching drug data:', error);
-                alert('Failed to fetch drug data. Please try again.');
+                showDetailsError(error && error.message
+                    ? error.message
+                    : 'Failed to fetch drug data. Please try again.');
             });
     }
     
@@ -376,7 +419,7 @@ function showMoleculeStructure(smiles, name) {
   if (smiles) {
     loadStructure(smiles);
   } else {
-    alert('No SMILES data available for this drug');
+    showMessage('No chemical structure (SMILES) is available for this drug.', 'warning');
   }
 }
 
@@ -473,8 +516,8 @@ function renderTableView() {
             </td>
             <td>
                 <div class="action-buttons">
-                    <button class="action-btn view-structure-btn" data-smiles="${drug.smiles || ''}">View Structure</button>
-                    <button class="action-btn view-details-btn">View Details</button>
+                    <button class="action-btn view-structure-btn ms-btn ms-btn--ghost ms-btn--sm" data-smiles="${drug.smiles || ''}">View Structure</button>
+                    <button class="action-btn view-details-btn ms-btn ms-btn--sm">View Details</button>
                 </div>
             </td>
         `;
@@ -493,7 +536,7 @@ function renderTableView() {
             if (drug.smiles) {
                 showMoleculeStructure(drug.smiles, drug.name);
             } else {
-                alert('No SMILES data available for this drug');
+                showMessage('No chemical structure (SMILES) is available for this drug.', 'warning');
             }
         });
         

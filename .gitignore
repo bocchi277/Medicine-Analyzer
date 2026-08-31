@@ -1,0 +1,19 @@
+# Secrets — never commit these. Backend/.env is currently still tracked in git
+# history; rotate the Gemini key and untrack it with:
+#     git rm --cached Backend/.env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

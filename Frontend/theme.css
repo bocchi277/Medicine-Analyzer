@@ -1,0 +1,300 @@
+/* ============================================================================
+   MedSphere — design tokens
+   ----------------------------------------------------------------------------
+   Every value here is lifted from the existing homepage (style.css, bg.css,
+   style2.css) rather than invented, so the other pages inherit the same look
+   instead of an approximation of it.
+
+   Load order on a page:
+       bg.css  ->  theme.css  ->  components.css  ->  page-specific styles
+
+   Nothing in this file styles a bare element other than :root/body typography,
+   and every class is prefixed `ms-`. That is deliberate: index.html already
+   owns generic selectors like .container, .card and .icon, and this file must
+   not disturb them.
+   ========================================================================= */
+
+:root {
+  /* ---- Surfaces ------------------------------------------------------- */
+  /* rgb(4,4,4) is the homepage background; the rest are steps above it. */
+  --ms-bg: rgb(4, 4, 4);
+  --ms-surface-1: rgba(255, 255, 255, 0.045);
+  --ms-surface-2: rgba(255, 255, 255, 0.075);
+  --ms-surface-3: rgba(255, 255, 255, 0.11);
+  --ms-surface-solid: #0c0c10;
+
+  /* Glass panels: a faint top-lit gradient reads as a lifted sheet against
+     the near-black page, which is what the homepage cards do with imagery. */
+  --ms-glass: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.085) 0%,
+    rgba(255, 255, 255, 0.03) 42%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
+
+  /* ---- Borders -------------------------------------------------------- */
+  --ms-border: rgba(255, 255, 255, 0.1);
+  --ms-border-strong: rgba(255, 255, 255, 0.2);
+  --ms-border-hairline: rgba(255, 255, 255, 0.06);
+
+  /* ---- Text ----------------------------------------------------------- */
+  /* aliceblue and rgb(219,219,250) are the homepage's sidebar/logo colours. */
+  --ms-text: aliceblue;
+  --ms-text-bright: #ffffff;
+  --ms-text-soft: rgb(219, 219, 250);
+  --ms-text-muted: rgba(219, 219, 250, 0.62);
+  --ms-text-faint: rgba(219, 219, 250, 0.38);
+  --ms-text-on-light: #2a2a2a;
+  --ms-text-on-light-hover: #183153;
+
+  /* ---- Signature accent ----------------------------------------------- */
+  /* The animated pill on the homepage hero. This gradient is the brand. */
+  --ms-accent-1: #fbab7e;  /* peach */
+  --ms-accent-2: #c850c0;  /* magenta */
+  --ms-accent-3: #ffcc70;  /* gold */
+  --ms-accent-yellow: #ffd401;   /* the button wipe colour */
+  --ms-accent-blue: #badbff;     /* the heading glow colour */
+  --ms-gradient: linear-gradient(
+    43deg,
+    #fbab7e 0%,
+    #c850c0 46%,
+    #ffcc70 70%,
+    #fbab7e 100%
+  );
+  --ms-gradient-soft: linear-gradient(
+    43deg,
+    rgba(251, 171, 126, 0.16) 0%,
+    rgba(200, 80, 192, 0.16) 46%,
+    rgba(255, 204, 112, 0.16) 100%
+  );
+
+  /* ---- Status --------------------------------------------------------- */
+  --ms-success: #69b578;
+  --ms-warning: #f39c12;
+  --ms-danger: #e74c3c;
+  --ms-info: #8ab4f8;
+
+  /* ---- Radii ---------------------------------------------------------- */
+  /* 10px matches the homepage feature cards; 50px the hero pill. */
+  --ms-radius-sm: 6px;
+  --ms-radius: 10px;
+  --ms-radius-lg: 16px;
+  --ms-radius-xl: 22px;
+  --ms-radius-pill: 50px;
+
+  /* ---- Spacing -------------------------------------------------------- */
+  --ms-space-1: 0.35rem;
+  --ms-space-2: 0.6rem;
+  --ms-space-3: 0.9rem;
+  --ms-space-4: 1.3rem;
+  --ms-space-5: 1.9rem;
+  --ms-space-6: 2.6rem;
+  --ms-space-7: 3.6rem;
+
+  /* ---- Elevation ------------------------------------------------------ */
+  /* rgb(20,20,20) 0 10px 10px is the homepage card shadow. */
+  --ms-shadow-card: rgba(20, 20, 20, 0.5) 0px 10px 10px;
+  --ms-shadow-raised: 0 18px 40px -12px rgba(0, 0, 0, 0.75);
+  --ms-shadow-float: 0 26px 60px -18px rgba(0, 0, 0, 0.85);
+  --ms-glow-gold: 0px 0px 15px var(--ms-accent-3);
+  --ms-glow-accent: 0 0 26px -4px rgba(200, 80, 192, 0.5);
+
+  /* The hero's hover text-shadow, reused for headings elsewhere. */
+  --ms-text-glow: 0 0 10px #ffffff5f, 0 0 20px #ffffff82, 0 0 40px var(--ms-accent-blue);
+
+  /* ---- Motion --------------------------------------------------------- */
+  --ms-ease: cubic-bezier(0.2, 0.9, 0.3, 1);   /* the sidebar's easing */
+  --ms-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ms-dur-fast: 0.2s;
+  --ms-dur: 0.3s;
+  --ms-dur-slow: 0.5s;
+
+  /* ---- Layout --------------------------------------------------------- */
+  /* The homepage offsets its content by 23% to clear the 78px rail. */
+  --ms-rail-w: 78px;
+  --ms-content-offset: 23%;
+  --ms-content-max: 1180px;
+}
+
+/* Re-assert the homepage typeface. bg.css sets body{font-family:'Exo'} for its
+   own demo markup, and this file always loads after it. */
+body {
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--ms-bg);
+  color: var(--ms-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================================
+   Shared keyframes
+   ----------------------------------------------------------------------------
+   `ms-`prefixed copies of the homepage animations, so pages that do not load
+   style.css still get them and there is never a name collision with pages
+   that do.
+   ========================================================================= */
+
+/* The hero pill's travelling gradient. */
+@keyframes ms-gradient-pan {
+  to { background-position: 200%; }
+}
+
+/* The hero's floating artwork. */
+@keyframes ms-float-a {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-30px); }
+}
+
+@keyframes ms-float-b {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-40px); }
+}
+
+/* The "Key Features" water-line heading. */
+@keyframes ms-water {
+  0%, 100% { clip-path: polygon(0% 47%, 10% 48%, 20% 50%, 30% 52%, 40% 54%, 50% 55%, 60% 54%, 70% 52%, 80% 50%, 90% 48%, 100% 47%, 100% 100%, 0% 100%); }
+  12.5%    { clip-path: polygon(0% 52%, 10% 54%, 20% 56%, 30% 58%, 40% 60%, 50% 61%, 60% 60%, 70% 58%, 80% 56%, 90% 54%, 100% 52%, 100% 100%, 0% 100%); }
+  25%      { clip-path: polygon(0% 57%, 10% 60%, 20% 62%, 30% 64%, 40% 65%, 50% 66%, 60% 65%, 70% 64%, 80% 62%, 90% 60%, 100% 57%, 100% 100%, 0% 100%); }
+  37.5%    { clip-path: polygon(0% 62%, 10% 65%, 20% 66%, 30% 67%, 40% 68%, 50% 67%, 60% 66%, 70% 65%, 80% 64%, 90% 63%, 100% 62%, 100% 100%, 0% 100%); }
+  50%      { clip-path: polygon(0% 65%, 10% 67%, 20% 68%, 30% 67%, 40% 66%, 50% 65%, 60% 64%, 70% 63%, 80% 62%, 90% 61%, 100% 60%, 100% 100%, 0% 100%); }
+  62.5%    { clip-path: polygon(0% 60%, 10% 61%, 20% 62%, 30% 63%, 40% 62%, 50% 60%, 60% 58%, 70% 57%, 80% 56%, 90% 55%, 100% 54%, 100% 100%, 0% 100%); }
+  75%      { clip-path: polygon(0% 55%, 10% 56%, 20% 57%, 30% 58%, 40% 57%, 50% 56%, 60% 55%, 70% 54%, 80% 53%, 90% 52%, 100% 51%, 100% 100%, 0% 100%); }
+  87.5%    { clip-path: polygon(0% 50%, 10% 51%, 20% 52%, 30% 53%, 40% 54%, 50% 53%, 60% 52%, 70% 51%, 80% 50%, 90% 49%, 100% 48%, 100% 100%, 0% 100%); }
+}
+
+/* The homepage's scroll-reveal. */
+@keyframes ms-appear {
+  from { opacity: 0; scale: 0.5; }
+  to   { opacity: 1; scale: 1; }
+}
+
+/* The button's press bounce. */
+@keyframes ms-scale-up {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ms-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ms-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ms-shimmer {
+  0%   { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+
+@keyframes ms-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(200, 80, 192, 0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(200, 80, 192, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(200, 80, 192, 0); }
+}
+
+/* ============================================================================
+   Utilities
+   ========================================================================= */
+
+/* Scroll-reveal, matching the homepage's .animate. Guarded so browsers without
+   scroll-driven animations simply show the content. */
+@supports (animation-timeline: view()) {
+  .ms-animate {
+    animation: ms-appear linear;
+    animation-timeline: view();
+    animation-range: entry 0% cover 22%;
+  }
+}
+
+.ms-gradient-text {
+  background: var(--ms-gradient);
+  background-size: 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ms-gradient-pan 2.6s linear infinite;
+}
+
+/* Visually hidden but available to screen readers. */
+.ms-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ms-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ms-border-strong) transparent;
+}
+
+.ms-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.ms-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.ms-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--ms-border-strong);
+  border-radius: var(--ms-radius-pill);
+}
+.ms-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); }
+
+/* ============================================================================
+   Injected background layer
+   ----------------------------------------------------------------------------
+   bg.css gives .background a relative 100vh box, which is right for the
+   homepage hero it was written for. On a content page that same box would
+   occupy the entire first screen and push the content below the fold, so the
+   copy injected by site-chrome.js is pinned behind the page instead.
+
+   index.html's own .background does not carry this class and is unaffected.
+   ========================================================================= */
+
+.background.ms-bg-fixed {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.background.ms-bg-fixed .area {
+  width: 100%;
+  height: 100vh;
+}
+
+/* Keep page content above the pinned layer. */
+.background.ms-bg-fixed ~ * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================================
+   Reduced motion
+   ----------------------------------------------------------------------------
+   The homepage runs several continuous animations at once (ten rising shapes,
+   a panning gradient, two floating images, a clip-path wave). Honour the OS
+   setting for users who ask for less, including for the homepage's own
+   animations, which is a fix rather than a change in intent.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .circles,
+  .ms-bg-circles {
+    display: none;
+  }
+}

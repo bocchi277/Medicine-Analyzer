@@ -6,10 +6,11 @@ import os
 # Import components from other modules
 from config import config
 from data_processing import load_and_preprocess_data
-from vector_store import get_sbert_model, build_and_save_index, load_index_and_map
+from vector_store import load_index_and_map
 from api import api_bp, init_api
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def create_app():
     """Creates and configures the Flask application."""
@@ -18,26 +19,25 @@ def create_app():
 
     try:
         logging.info("--- Initializing Application ---")
+
+        # The index is a build artifact, produced offline by build_index.py.
+        # Building it here would require sentence-transformers/PyTorch in the
+        # web process, which alone exceeds a 512 MB memory budget.
+        faiss_index, faiss_id_map, faiss_positions = load_index_and_map()
+        if faiss_index is None:
+            raise RuntimeError(
+                "No usable FAISS index found. Run 'python build_index.py' locally "
+                "(see requirements-build.txt) and deploy the generated "
+                f"'{config.FAISS_INDEX_PATH}' and '{config.ID_MAP_PATH}'."
+            )
+        logging.info("Loaded existing FAISS index.")
+
         drug_data = load_and_preprocess_data()
-        sbert_model = get_sbert_model()
 
-        faiss_index, faiss_id_map = load_index_and_map()
-        if faiss_index is None or faiss_id_map is None:
-            logging.warning("Building new FAISS index...")
-            if not drug_data.empty and sbert_model:
-                faiss_index, faiss_id_map = build_and_save_index(drug_data, sbert_model)
-                if faiss_index is None:
-                    raise RuntimeError("Failed to build FAISS index.")
-            else:
-                raise RuntimeError("Missing data or model for index building.")
-        else:
-            logging.info("Loaded existing FAISS index.")
-
-        if faiss_index.ntotal != len(faiss_id_map):
-            logging.warning("Index mismatch. Rebuilding...")
-            faiss_index, faiss_id_map = build_and_save_index(drug_data, sbert_model)
-
-        init_api(sbert_model, faiss_index, faiss_id_map, drug_data)
+        init_api(faiss_index, faiss_id_map, faiss_positions, drug_data)
+        # Release this scope's reference so the only one left is inside the api
+        # module; otherwise the frame stays alive in the closure below.
+        del drug_data
         app.register_blueprint(api_bp)
         logging.info("API Blueprint registered.")
 
@@ -53,7 +53,13 @@ def create_app():
             "vector_index_size": faiss_index.ntotal if faiss_index else 0
         })
 
+    @app.route('/healthz')
+    def healthz():
+        """Cheap liveness probe that avoids waking any heavy code paths."""
+        return jsonify({"status": "ok"}), 200
+
     return app
+
 
 # Create the app instance for Gunicorn
 app = create_app()

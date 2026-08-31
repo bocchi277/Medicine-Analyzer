@@ -1,0 +1,61 @@
+# Render Blueprint — deploys the API and the frontend as two services.
+#
+#   1. Push this repo to GitHub.
+#   2. Render Dashboard -> New -> Blueprint -> pick this repo.
+#   3. Set GEMINI_API_KEY on the API service (it is marked sync:false so Render
+#      prompts for it instead of storing it in git).
+#   4. Copy the API's URL, then set PRODUCTION_API_BASE in Frontend/config.js
+#      to that URL and push. (The frontend is static, so the URL is baked in at
+#      build time rather than read from an env var.)
+#
+# Memory note: the API holds ~157 MB resident against the 512 MB free limit.
+# That budget assumes ONE worker. Raising --workers multiplies memory by the
+# worker count and will OOM; use --threads for concurrency instead.
+
+services:
+  # ---------------------------------------------------------------- API ----
+  - type: web
+    name: medsphere-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt
+    # Single worker, four threads. Threads share the FAISS index and dataframe;
+    # additional processes would each load their own copy.
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120 --preload --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: GEMINI_API_KEY
+        sync: false          # prompted for on deploy; never committed
+      - key: GEMINI_MODEL_NAME
+        value: gemini-2.5-flash
+      # Keep pip from caching wheels into the image layer unnecessarily.
+      - key: PIP_DISABLE_PIP_VERSION_CHECK
+        value: "1"
+
+  # ----------------------------------------------------------- Frontend ----
+  # A static site: free, no cold starts, CDN-served. Only the API sleeps.
+  - type: web
+    name: medsphere-web
+    runtime: static
+    rootDir: Frontend
+    buildCommand: ""
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    routes:
+      # Serve index.html for the bare domain.
+      - type: rewrite
+        source: /
+        destination: /index.html

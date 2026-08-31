@@ -17,9 +17,13 @@
     <link rel="stylesheet" href="style2.css">
     <link rel="stylesheet" href="bg.css">
     <link rel="stylesheet" href="loader.css">
+    <!-- Shared tokens + components. Loaded last so they can normalise the
+         typography that bg.css overrides. -->
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="components.css">
 </head>
 
-<body>
+<body data-ms-page="home">
     <div id="preloader">
         <div class="pl">
             <div class="pl__dot"></div>
@@ -60,35 +64,9 @@
         <div class="layer-blur"></div>
 
         <header>
-            <nav>
-                <div class="sidebar">
-                    <div class="logo-content">
-                        <div class="logo">
-                            <img src="logo.png" alt="" class="log">
-                            <span>MedSphere</span>
-                            <i class='bx bx-menu' id="btn"></i>
-                        </div>
-                    </div>
-                    <ul>
-                        <li class="active"><a href="index.html">
-                                <i class='bx bx-home-smile'></i>
-                                <span class="nav-item">Home</span>
-                            </a></li>
-                        <li><a href="about.html">
-                                <i class='bx bxs-contact'></i>
-                                <span class="nav-item">About</span>
-                            </a></li>
-                        <li><a href="#key-feature">
-                                <i class='bx bx-analyse'></i>
-                                <span class="nav-item">Medicine Analyzer</span>
-                            </a></li>
-                        <li><a href="">
-                                <i class='bx bxs-color'></i>
-                                <span class="nav-item">Learn More</span>
-                            </a></li>
-                    </ul>
-                </div>
-            </nav>
+            <!-- The sidebar is injected by site-chrome.js so every page shares
+                 one definition. It renders the same .sidebar markup this file
+                 used to hard-code, styled by the same rules in style.css. -->
             <div class="home-content">
 
                 <div class="header">
@@ -108,7 +86,7 @@
 
                 <div id="image-container">
                     <img src="test-tube.png" alt="" id="first-img">
-                    <img src="Bottle.png" alt="" id="second-img">
+                    <img src="bottle.png" alt="" id="second-img">
                 </div>
             </div>
 
@@ -121,7 +99,7 @@
             <div class="container">
                 <div class="card">
                     <div class="card-content">
-                        <a href="maintinence.html">
+                        <a href="drugdetail1.html">
                             <h2>Drug Details</h2>
                         </a>
                     </div>
@@ -132,7 +110,7 @@
             <div class="container">
                 <div class="card">
                     <div class="card-content">
-                        <a href="maintinence.html">
+                        <a href="firstpage.html">
                             <h2>Alternative</h2>
                         </a>
                     </div>
@@ -142,147 +120,15 @@
             <div class="container">
                 <div class="card">
                     <div class="card-content">
-                        <a href="maintinence.html"><h2>Comparison</h2></a>
+                        <a href="compare_page.html"><h2>Comparison</h2></a>
                     </div>
                 </div>
                 <div class="icon" id="third"></div>
             </div>
         </section>
     </div>
+    <script src="config.js"></script>
+    <script src="site-chrome.js" defer></script>
 </body>
-<script>
-    let btn = document.querySelector("#btn")
-    let sidebar = document.querySelector(".sidebar")
-    let navItems = document.querySelectorAll(".nav-item")
-    btn.onclick = function () {
-        sidebar.classList.toggle("active")
-        navItems.forEach(item => {
-            item.classList.toggle("active");
-        });
-    }
-    window.addEventListener('load', () => {
-        const preloader = document.getElementById('preloader');
-        const content = document.getElementById('main-content');
-
-        preloader.classList.add('hidden');
-        setTimeout(() => {
-            preloader.style.display = 'none';
-            content.style.display = 'block';
-        }, 500); // match transition duration
-    });
-    document.getElementById("btn-search").addEventListener("click", () => {
-        const medName = document.getElementById("med-input").value;
-        const resultsDiv = document.getElementById("results");
-
-        if (!medName) {
-            resultsDiv.innerHTML = "<p>Please enter a medicine name.</p>";
-            return;
-        }
-        fetch(`http://127.0.0.1:8000/api/get_alternative?name=${encodeURIComponent(medName)}`)
-            .then(response => {
-                // Check if the response status is OK (200-299)
-                if (!response.ok) {
-                    // Handle HTTP errors (e.g., 400, 404, 500)
-                    // The backend already sends a JSON error object, so we can parse it
-                    return response.json().then(data => {
-                        // Propagate the error with the message from the backend
-                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-                    });
-                }
-                // If response is OK, parse the JSON
-                return response.json();
-            })
-            .then(data => {
-                // Check for a custom error field in the JSON response
-                if (data.error) {
-                    resultsDiv.innerHTML = `<p class="text-red-600">Error: ${data.error}</p>`;
-                } else {
-                    // Extract the data based on the new backend structure
-                    const targetDrug = data.target_drug; // Information about the drug searched
-                    const similarMeds = data.similar_medicines; // List of similar drugs (summary)
-                    const bestAlternative = data.best_alternative_recommendation; // LLM recommendation text
-
-                    let htmlContent = '';
-
-                    // Display information about the target drug
-                    if (targetDrug) {
-                        htmlContent += `
-                    <div class="mb-6 p-4 border border-blue-300 rounded-md bg-blue-50">
-                        <h3 class="text-lg font-semibold mb-2">Searched Medicine:</h3>
-                        <p><strong>Name:</strong> ${targetDrug.name || 'N/A'}</p>
-                        <p><strong>Generic Name:</strong> ${targetDrug.generic_name || 'N/A'}</p>
-                        <p><strong>Indication:</strong> ${targetDrug.indication || 'Not Available'}</p>
-                        ${targetDrug.description ? `<p><strong>Description:</strong> ${targetDrug.description}</p>` : ''}
-                    </div>
-                 `;
-                    }
-
-
-                    // Display the list of similar medicines
-                    if (similarMeds && similarMeds.length > 0) {
-                        htmlContent += `
-                    <div class="mb-6">
-                        <h3 class="text-lg font-semibold mb-2">Similar Medicines Found:</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                `;
-                        htmlContent += similarMeds.map(med => `
-                    <div class="p-4 border border-gray-300 rounded-md bg-white shadow-sm">
-                        <p><strong>Name:</strong> ${med.name || 'N/A'}</p>
-                        <p><strong>Generic Name:</strong> ${med.generic_name || 'N/A'}</p>
-                        <p><strong>Indication:</strong> ${med.indication || 'Not Available'}</p>
-                        ${med.mechanism ? `<p><strong>Mechanism:</strong> ${med.mechanism || 'Not Available'}</p>` : ''}
-                    </div>
-                `).join('');
-                        htmlContent += `
-                        </div>
-                    </div>
-                 `;
-                    } else {
-                        htmlContent += `
-                    <div class="mb-6 p-4 border border-orange-300 rounded-md bg-orange-50">
-                        <p>No other similar medicines found in the index.</p>
-                    </div>
-                 `;
-                    }
-
-                    // Display the best alternative recommendation from the LLM
-                    if (bestAlternative) {
-                        htmlContent += `
-                    <div class="p-4 border border-green-300 rounded-md bg-green-50">
-                        <h3 class="text-lg font-semibold mb-2">Best Alternative Recommendation:</h3>
-                        <p>${bestAlternative}</p>
-                    </div>
-                 `;
-                    } else {
-                        // Handle case where LLM might not return a recommendation
-                        htmlContent += `
-                    <div class="p-4 border border-orange-300 rounded-md bg-orange-50">
-                        <p>Could not generate a specific best alternative recommendation.</p>
-                    </div>
-                 `;
-                    }
-
-
-                    // Set the innerHTML of the results div
-                    resultsDiv.innerHTML = htmlContent;
-
-                    // Add some basic Tailwind CSS classes for styling (assuming Tailwind is used)
-                    resultsDiv.classList.add('p-4', 'bg-gray-100', 'rounded-md', 'shadow-lg', 'mt-4');
-
-
-                }
-            })
-            .catch(err => {
-                // Handle network errors or errors thrown from the .then blocks
-                console.error('Fetch error:', err); // Log the error for debugging
-                resultsDiv.innerHTML = `<p class="text-red-600">An error occurred: ${err.message || err}</p>`;
-                // Remove potential previous styling classes on error
-                resultsDiv.classList.remove('p-4', 'bg-gray-100', 'rounded-md', 'shadow-lg', 'mt-4');
-            });
-
-    });
-
-
-</script>
 
 </html>

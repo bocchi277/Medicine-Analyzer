@@ -1,0 +1,886 @@
+/* ============================================================================
+   MedSphere — component library
+   ----------------------------------------------------------------------------
+   Reusable pieces built from the homepage's own visual devices:
+
+     * the hero pill        -> .ms-pill, .ms-btn--gradient, .ms-panel--accent
+     * the Uiverse button   -> .ms-btn
+     * the water heading    -> .ms-title
+     * the tilt-lift cards  -> .ms-panel hover behaviour
+     * the hero text glow   -> .ms-heading:hover, focus rings
+
+   Every selector is `ms-`prefixed so it cannot collide with the generic
+   class names index.html already uses (.card, .container, .icon, .header).
+
+   Requires: theme.css
+   ========================================================================= */
+
+/* ============================================================================
+   Layout
+   ========================================================================= */
+
+/* Clears the fixed sidebar rail and centres content. Mirrors the homepage's
+   23% offset so pages line up with each other. */
+.ms-shell {
+  position: relative;
+  z-index: 1;
+  margin-left: var(--ms-content-offset);
+  width: calc(100% - var(--ms-content-offset));
+  max-width: var(--ms-content-max);
+  padding: var(--ms-space-6) var(--ms-space-5) var(--ms-space-7);
+}
+
+.ms-shell--wide { max-width: none; padding-right: var(--ms-space-6); }
+
+/* Sits the page content above bg.css's .background layer. */
+.ms-layer {
+  position: relative;
+  z-index: 1;
+}
+
+.ms-stack   { display: flex; flex-direction: column; gap: var(--ms-space-4); }
+.ms-stack-2 { display: flex; flex-direction: column; gap: var(--ms-space-2); }
+.ms-row     { display: flex; align-items: center; gap: var(--ms-space-3); flex-wrap: wrap; }
+.ms-row--between { justify-content: space-between; }
+
+.ms-grid {
+  display: grid;
+  gap: var(--ms-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.ms-grid--2 { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
+.ms-grid--tight { gap: var(--ms-space-3); }
+
+/* ============================================================================
+   Headings
+   ========================================================================= */
+
+.ms-heading {
+  color: var(--ms-text-bright);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: text-shadow var(--ms-dur-slow) ease-in-out,
+              letter-spacing var(--ms-dur-slow) ease-in-out;
+}
+
+/* The hero's hover glow, applied to section headings. */
+.ms-heading:hover {
+  letter-spacing: 0.03rem;
+  text-shadow: var(--ms-text-glow);
+}
+
+.ms-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ms-text-faint);
+}
+
+/* The "Key Features" water-line heading, as a reusable block.
+   Markup: <div class="ms-title"><h2>Text</h2><h2 aria-hidden="true">Text</h2></div>
+   The first copy is the outline, the second is the animated fill. */
+.ms-title {
+  position: relative;
+  text-align: center;
+  padding: var(--ms-space-5) 0 var(--ms-space-4);
+}
+
+.ms-title h2,
+.ms-title .ms-title__line {
+  margin: 0;
+  font-size: clamp(1.5rem, 1rem + 1.8vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Stack the two copies exactly on top of one another. */
+.ms-title h2 + h2,
+.ms-title .ms-title__line + .ms-title__line {
+  position: absolute;
+  inset: var(--ms-space-5) 0 auto 0;
+}
+
+.ms-title h2:first-child,
+.ms-title .ms-title__line:first-child {
+  color: transparent;
+  -webkit-text-stroke: 0.6px var(--ms-text-bright);
+}
+
+.ms-title h2:last-child,
+.ms-title .ms-title__line:last-child {
+  color: #d8d8d8;
+  animation: ms-water 4s ease-in-out infinite;
+}
+
+/* ============================================================================
+   The signature pill
+   ----------------------------------------------------------------------------
+   A gradient ring with the page colour punched out of the middle, exactly as
+   the hero's .tag-box / .tag pair does it.
+   ========================================================================= */
+
+.ms-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 3px;
+  border-radius: var(--ms-radius-pill);
+  background-image: var(--ms-gradient);
+  background-size: 200%;
+  animation: ms-gradient-pan 2.6s linear infinite;
+  box-shadow: var(--ms-glow-gold);
+}
+
+.ms-pill__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--ms-space-4);
+  border-radius: var(--ms-radius-pill);
+  background-color: var(--ms-bg);
+  color: var(--ms-text);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: color var(--ms-dur-slow) ease;
+}
+
+.ms-pill:hover .ms-pill__inner { color: var(--ms-accent-1); }
+
+/* ============================================================================
+   Buttons
+   ========================================================================= */
+
+.ms-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  padding: 0.85rem 1.6rem;
+  border: none;
+  border-radius: var(--ms-radius-sm);
+  background: #e8e8e8;
+  color: var(--ms-text-on-light);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0px 6px 24px 0px rgba(0, 0, 0, 0.2);
+  transition: color var(--ms-dur) ease-in-out, transform var(--ms-dur) var(--ms-ease);
+}
+
+/* The yellow wipe travels right-to-left on hover, as on the homepage. */
+.ms-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 0;
+  background: var(--ms-accent-yellow);
+  transition: width 0.4s ease-in-out;
+}
+
+.ms-btn:hover::after,
+.ms-btn:focus-visible::after {
+  inset: 0 auto 0 0;
+  width: 100%;
+}
+
+.ms-btn > * { position: relative; z-index: 2; }
+
+.ms-btn:hover {
+  color: var(--ms-text-on-light-hover);
+  animation: ms-scale-up var(--ms-dur) ease-in-out;
+}
+
+.ms-btn:active { transform: translateY(1px); }
+
+/* Gradient-ringed button: the pill device at button scale. Use for the primary
+   action on a page that already has a light button, or where a solid light
+   block would be too heavy against the dark background. */
+.ms-btn--gradient {
+  background: var(--ms-gradient);
+  background-size: 200%;
+  animation: ms-gradient-pan 2.6s linear infinite;
+  padding: 2px;
+  color: var(--ms-text);
+  box-shadow: var(--ms-glow-gold);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.ms-btn--gradient::after { display: none; }
+
+.ms-btn--gradient > span,
+.ms-btn--gradient .ms-btn__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border-radius: calc(var(--ms-radius-sm) - 1px);
+  background: var(--ms-bg);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: background var(--ms-dur) ease, color var(--ms-dur) ease;
+}
+
+.ms-btn--gradient:hover { color: var(--ms-text-bright); animation-play-state: running; }
+.ms-btn--gradient:hover > span,
+.ms-btn--gradient:hover .ms-btn__label { background: rgba(4, 4, 4, 0.55); }
+
+/* Quiet button for secondary actions. */
+.ms-btn--ghost {
+  background: var(--ms-surface-1);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-text-soft);
+  box-shadow: none;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 600;
+  backdrop-filter: blur(6px);
+}
+
+.ms-btn--ghost::after { display: none; }
+
+.ms-btn--ghost:hover {
+  background: var(--ms-surface-3);
+  border-color: var(--ms-border-strong);
+  color: var(--ms-text-bright);
+  transform: translateY(-2px);
+  animation: none;
+}
+
+.ms-btn--danger { background: var(--ms-danger); color: #fff; }
+.ms-btn--danger::after { background: #ff6b5b; }
+.ms-btn--danger:hover { color: #fff; }
+
+.ms-btn--sm { padding: 0.55rem 1rem; font-size: 0.8rem; }
+.ms-btn--block { width: 100%; }
+
+/* Circular icon button, e.g. a back arrow or a modal close. */
+.ms-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  border: 1px solid var(--ms-border);
+  border-radius: 50%;
+  background: var(--ms-surface-1);
+  color: var(--ms-text-soft);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--ms-dur) var(--ms-ease);
+}
+
+.ms-btn-icon:hover {
+  background: var(--ms-surface-3);
+  border-color: var(--ms-border-strong);
+  color: var(--ms-text-bright);
+  transform: translateY(-2px);
+}
+
+.ms-btn:disabled,
+.ms-btn-icon:disabled,
+.ms-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  animation: none;
+}
+
+.ms-btn:disabled::after { display: none; }
+
+/* ============================================================================
+   Panels
+   ----------------------------------------------------------------------------
+   The workhorse "box". A glass sheet with a gradient hairline along the top
+   edge that brightens on hover, plus the homepage's lift-on-hover.
+   ========================================================================= */
+
+.ms-panel {
+  position: relative;
+  padding: var(--ms-space-4);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  background-image: var(--ms-glass);
+  background-color: rgba(255, 255, 255, 0.012);
+  box-shadow: var(--ms-shadow-card);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  transition: transform var(--ms-dur-slow) var(--ms-ease),
+              border-color var(--ms-dur) ease,
+              box-shadow var(--ms-dur-slow) ease;
+}
+
+/* The gradient hairline. */
+.ms-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--ms-gradient);
+  background-size: 200%;
+  opacity: 0.5;
+  transition: opacity var(--ms-dur) ease;
+}
+
+.ms-panel:hover {
+  transform: translateY(-4px);
+  border-color: var(--ms-border-strong);
+  box-shadow: var(--ms-shadow-raised);
+}
+
+.ms-panel:hover::before {
+  opacity: 1;
+  animation: ms-gradient-pan 2.6s linear infinite;
+}
+
+/* Opt out of the hover lift for panels that are containers, not cards. */
+.ms-panel--static:hover { transform: none; box-shadow: var(--ms-shadow-card); }
+
+.ms-panel--flush { padding: 0; }
+.ms-panel--lg { padding: var(--ms-space-5); }
+
+/* Full gradient ring, for the one panel on a page that should dominate —
+   e.g. the recommended alternative. */
+.ms-panel--accent {
+  border: none;
+  padding: 2px;
+  background: var(--ms-gradient);
+  background-size: 200%;
+  animation: ms-gradient-pan 2.6s linear infinite;
+  box-shadow: var(--ms-glow-accent);
+}
+
+.ms-panel--accent::before { display: none; }
+
+.ms-panel--accent > .ms-panel__inner {
+  padding: var(--ms-space-5);
+  border-radius: calc(var(--ms-radius-lg) - 2px);
+  background: #08080b;
+  height: 100%;
+}
+
+.ms-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ms-space-3);
+  margin-bottom: var(--ms-space-3);
+  padding-bottom: var(--ms-space-3);
+  border-bottom: 1px solid var(--ms-border-hairline);
+}
+
+.ms-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ms-text-bright);
+}
+
+.ms-panel__body { color: var(--ms-text-muted); font-size: 0.92rem; }
+
+/* ============================================================================
+   Key/value information rows
+   ========================================================================= */
+
+.ms-kv { display: grid; gap: var(--ms-space-3); }
+
+.ms-kv__item {
+  padding: var(--ms-space-3);
+  border: 1px solid var(--ms-border-hairline);
+  border-left: 2px solid rgba(251, 171, 126, 0.45);
+  border-radius: var(--ms-radius-sm);
+  background: var(--ms-surface-1);
+  transition: border-left-color var(--ms-dur) ease, background var(--ms-dur) ease;
+}
+
+.ms-kv__item:hover {
+  border-left-color: var(--ms-accent-2);
+  background: var(--ms-surface-2);
+}
+
+.ms-kv__label {
+  display: block;
+  margin-bottom: var(--ms-space-1);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ms-text-faint);
+}
+
+.ms-kv__value {
+  margin: 0;
+  color: var(--ms-text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================================
+   Badges and chips
+   ========================================================================= */
+
+.ms-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ms-space-1);
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-surface-2);
+  color: var(--ms-text-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ms-badge--accent {
+  border-color: rgba(251, 171, 126, 0.4);
+  background: var(--ms-gradient-soft);
+  color: var(--ms-accent-1);
+}
+
+.ms-badge--success { border-color: rgba(105, 181, 120, 0.4); color: var(--ms-success); background: rgba(105, 181, 120, 0.12); }
+.ms-badge--warning { border-color: rgba(243, 156, 18, 0.4);  color: var(--ms-warning); background: rgba(243, 156, 18, 0.12); }
+.ms-badge--danger  { border-color: rgba(231, 76, 60, 0.4);   color: var(--ms-danger);  background: rgba(231, 76, 60, 0.12); }
+
+/* Removable/interactive chip. */
+.ms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ms-space-1);
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--ms-border-hairline);
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-surface-1);
+  color: var(--ms-text-muted);
+  font-size: 0.78rem;
+  transition: all var(--ms-dur) ease;
+}
+
+.ms-chip:hover {
+  border-color: var(--ms-border-strong);
+  color: var(--ms-text);
+  transform: translateY(-1px);
+}
+
+/* ============================================================================
+   Form fields
+   ----------------------------------------------------------------------------
+   A gradient underline grows from the centre on focus, echoing the pill.
+   ========================================================================= */
+
+.ms-field { position: relative; display: flex; flex-direction: column; gap: var(--ms-space-2); }
+
+.ms-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ms-text-faint);
+}
+
+.ms-input,
+.ms-select,
+.ms-textarea {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ms-text-bright);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color var(--ms-dur) ease, background var(--ms-dur) ease,
+              box-shadow var(--ms-dur) ease;
+}
+
+.ms-input::placeholder,
+.ms-textarea::placeholder { color: var(--ms-text-faint); }
+
+.ms-input:hover,
+.ms-select:hover,
+.ms-textarea:hover { border-color: var(--ms-border-strong); }
+
+.ms-input:focus,
+.ms-select:focus,
+.ms-textarea:focus {
+  outline: none;
+  border-color: rgba(251, 171, 126, 0.55);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(200, 80, 192, 0.14);
+}
+
+.ms-input-wrap { position: relative; }
+
+/* The growing underline. */
+.ms-input-wrap::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ms-gradient);
+  background-size: 200%;
+  transform: translateX(-50%);
+  transition: width var(--ms-dur) var(--ms-ease-out);
+}
+
+.ms-input-wrap:focus-within::after {
+  width: calc(100% - 2rem);
+  animation: ms-gradient-pan 2.6s linear infinite;
+}
+
+.ms-input--invalid { border-color: rgba(231, 76, 60, 0.6) !important; }
+
+.ms-hint  { font-size: 0.78rem; color: var(--ms-text-faint); }
+.ms-error { font-size: 0.82rem; color: var(--ms-danger); min-height: 1.2em; }
+
+/* ============================================================================
+   Tabs
+   ========================================================================= */
+
+.ms-tabs {
+  display: flex;
+  gap: var(--ms-space-1);
+  padding: 0.3rem;
+  border: 1px solid var(--ms-border-hairline);
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-surface-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ms-tabs::-webkit-scrollbar { display: none; }
+
+.ms-tab {
+  flex: 0 0 auto;
+  padding: 0.55rem 1.15rem;
+  border: none;
+  border-radius: var(--ms-radius-pill);
+  background: transparent;
+  color: var(--ms-text-muted);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--ms-dur) var(--ms-ease);
+}
+
+.ms-tab:hover { color: var(--ms-text-bright); background: var(--ms-surface-2); }
+
+.ms-tab.is-active,
+.ms-tab[aria-selected="true"] {
+  background: var(--ms-gradient);
+  background-size: 200%;
+  animation: ms-gradient-pan 3.6s linear infinite;
+  color: #1a1119;
+  box-shadow: 0 4px 14px -4px rgba(200, 80, 192, 0.5);
+}
+
+.ms-tabpanel { padding-top: var(--ms-space-4); animation: ms-rise var(--ms-dur-slow) var(--ms-ease-out); }
+.ms-tabpanel[hidden] { display: none; }
+
+/* ============================================================================
+   Similarity meter
+   ========================================================================= */
+
+.ms-meter {
+  --ms-meter-value: 0%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ms-space-2);
+}
+
+.ms-meter__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ms-space-2);
+}
+
+.ms-meter__label { font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ms-text-faint); }
+
+.ms-meter__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-meter__track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--ms-radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.ms-meter__fill {
+  height: 100%;
+  width: var(--ms-meter-value);
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-gradient);
+  background-size: 200%;
+  animation: ms-gradient-pan 2.6s linear infinite;
+  box-shadow: 0 0 12px -2px rgba(255, 204, 112, 0.7);
+  transition: width 0.9s var(--ms-ease-out);
+}
+
+/* Circular variant. Set --ms-meter-deg to percentage * 3.6. */
+.ms-ring {
+  --ms-ring-deg: 0deg;
+  --ms-ring-size: 7.5rem;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--ms-ring-size);
+  height: var(--ms-ring-size);
+  border-radius: 50%;
+  background:
+    conic-gradient(var(--ms-accent-2) var(--ms-ring-deg), rgba(255, 255, 255, 0.07) 0deg);
+  transition: background 0.9s var(--ms-ease-out);
+}
+
+.ms-ring::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: var(--ms-bg);
+}
+
+.ms-ring__value {
+  position: relative;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--ms-text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   Alerts and empty states
+   ========================================================================= */
+
+.ms-alert {
+  display: flex;
+  gap: var(--ms-space-3);
+  padding: var(--ms-space-3) var(--ms-space-4);
+  border: 1px solid var(--ms-border);
+  border-left: 3px solid var(--ms-info);
+  border-radius: var(--ms-radius-sm);
+  background: var(--ms-surface-1);
+  color: var(--ms-text-muted);
+  font-size: 0.9rem;
+}
+
+.ms-alert--error   { border-left-color: var(--ms-danger);  background: rgba(231, 76, 60, 0.08); }
+.ms-alert--warning { border-left-color: var(--ms-warning); background: rgba(243, 156, 18, 0.08); }
+.ms-alert--success { border-left-color: var(--ms-success); background: rgba(105, 181, 120, 0.08); }
+
+.ms-empty {
+  padding: var(--ms-space-6) var(--ms-space-4);
+  border: 1px dashed var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  text-align: center;
+  color: var(--ms-text-faint);
+}
+
+.ms-empty__icon { font-size: 2.2rem; opacity: 0.5; margin-bottom: var(--ms-space-2); }
+
+/* ============================================================================
+   Loading
+   ========================================================================= */
+
+.ms-spinner {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 2px solid var(--ms-border);
+  border-top-color: var(--ms-accent-2);
+  border-right-color: var(--ms-accent-1);
+  border-radius: 50%;
+  animation: ms-spin 0.85s linear infinite;
+}
+
+.ms-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ms-space-3);
+  padding: var(--ms-space-6);
+  color: var(--ms-text-faint);
+}
+
+.ms-skeleton {
+  border-radius: var(--ms-radius-sm);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.11) 37%,
+    rgba(255, 255, 255, 0.05) 63%
+  );
+  background-size: 300% 100%;
+  animation: ms-shimmer 1.4s ease-in-out infinite;
+}
+
+.ms-skeleton--text { height: 0.85rem; margin-bottom: var(--ms-space-2); }
+.ms-skeleton--title { height: 1.5rem; width: 55%; margin-bottom: var(--ms-space-3); }
+
+/* ============================================================================
+   Modal
+   ========================================================================= */
+
+.ms-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--ms-space-4);
+  background: rgba(2, 2, 4, 0.78);
+  backdrop-filter: blur(6px);
+  animation: ms-rise var(--ms-dur) var(--ms-ease-out);
+}
+
+.ms-modal[hidden] { display: none; }
+
+.ms-modal__panel {
+  width: min(680px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  border: 1px solid var(--ms-border-strong);
+  border-radius: var(--ms-radius-lg);
+  background: var(--ms-surface-solid);
+  background-image: var(--ms-glass);
+  box-shadow: var(--ms-shadow-float);
+}
+
+.ms-modal__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ms-space-3);
+  padding: var(--ms-space-4);
+  border-bottom: 1px solid var(--ms-border);
+  background: rgba(12, 12, 16, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.ms-modal__title { margin: 0; font-size: 1.1rem; color: var(--ms-text-bright); }
+.ms-modal__body { padding: var(--ms-space-4); }
+
+/* ============================================================================
+   Divider / footer
+   ========================================================================= */
+
+.ms-divider {
+  height: 1px;
+  border: 0;
+  margin: var(--ms-space-5) 0;
+  background: linear-gradient(90deg, transparent, var(--ms-border-strong), transparent);
+}
+
+.ms-footer {
+  margin-top: var(--ms-space-7);
+  padding: var(--ms-space-4) 0;
+  border-top: 1px solid var(--ms-border-hairline);
+  color: var(--ms-text-faint);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.ms-footer a { color: var(--ms-text-muted); text-decoration: none; }
+.ms-footer a:hover { color: var(--ms-accent-1); }
+
+/* ============================================================================
+   Links
+   ========================================================================= */
+
+.ms-link {
+  color: var(--ms-text-soft);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(219, 219, 250, 0.28);
+  transition: color var(--ms-dur) ease, border-color var(--ms-dur) ease;
+}
+
+.ms-link:hover { color: var(--ms-accent-1); border-color: var(--ms-accent-1); }
+
+/* ============================================================================
+   Focus visibility
+   ----------------------------------------------------------------------------
+   Matches the sidebar's existing focus treatment in style.css.
+   ========================================================================= */
+
+.ms-btn:focus-visible,
+.ms-btn-icon:focus-visible,
+.ms-tab:focus-visible,
+.ms-link:focus-visible,
+.ms-input:focus-visible,
+.ms-panel a:focus-visible {
+  outline: 2px solid var(--ms-text-soft);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Responsive
+   ----------------------------------------------------------------------------
+   Breakpoints match style.css (1024 / 768 / 480) so the shell and the sidebar
+   change width together.
+   ========================================================================= */
+
+@media screen and (max-width: 1024px) {
+  .ms-shell {
+    margin-left: var(--ms-content-offset);
+    width: calc(100% - var(--ms-content-offset));
+    padding: var(--ms-space-5) var(--ms-space-4) var(--ms-space-6);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  :root { --ms-content-offset: 84px; }
+
+  .ms-shell {
+    margin-left: var(--ms-content-offset);
+    width: calc(100% - var(--ms-content-offset));
+    padding: var(--ms-space-4) var(--ms-space-3) var(--ms-space-6);
+  }
+
+  .ms-panel { padding: var(--ms-space-3); }
+  .ms-panel--lg { padding: var(--ms-space-4); }
+  .ms-panel--accent > .ms-panel__inner { padding: var(--ms-space-4); }
+  .ms-btn { padding: 0.75rem 1.2rem; font-size: 0.85rem; letter-spacing: 0.1em; }
+  .ms-grid, .ms-grid--2 { grid-template-columns: 1fr; }
+}
+
+@media screen and (max-width: 480px) {
+  :root { --ms-content-offset: 70px; }
+
+  .ms-shell { padding: var(--ms-space-3) var(--ms-space-2) var(--ms-space-5); }
+  .ms-title h2, .ms-title .ms-title__line { font-size: 1.4rem; }
+  .ms-meter__value { font-size: 1.15rem; }
+  .ms-ring { --ms-ring-size: 6rem; }
+}

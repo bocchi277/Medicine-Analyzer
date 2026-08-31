@@ -1,11 +1,12 @@
 from functools import wraps
+import threading
+import time
 from flask import Blueprint, request, jsonify
 import logging
 import numpy as np
 from llm_service import get_best_alternative_from_llm
-from vector_store import search_similar
+from vector_store import search_similar, get_stored_vector, cosine_similarity_of
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
 
 # Ensure logging is configured to show INFO level or higher
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,85 +15,131 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 # Global resources
-sbert_model = None
 faiss_index = None
 faiss_id_map = None
+# drug_id -> position in the FAISS index, used to read a drug's stored embedding
+# instead of recomputing it with an embedding model at request time.
+faiss_position_by_drug_id = None
 drug_data = None
-# Store preprocessed lowercased column names for efficient searching
-search_columns = {}
+# Lowercase alias -> (drug_id, priority). Covers name, generic name, synonyms
+# and brand names, so lookups are a dict hit rather than a scan of every row.
+alias_index = {}
 
-def init_api(model, index, id_map, data_df):
+def init_api(index, id_map, position_by_drug_id, data_df):
     """Initialize API resources with preprocessed data."""
-    global sbert_model, faiss_index, faiss_id_map, drug_data, search_columns
+    global faiss_index, faiss_id_map, faiss_position_by_drug_id, drug_data, alias_index
 
-    sbert_model = model
     faiss_index = index
     faiss_id_map = id_map
-    search_columns.clear() # Clear previous search columns if re-initializing
+    faiss_position_by_drug_id = position_by_drug_id
+    alias_index = {}
 
     if data_df is None or data_df.empty:
         logging.error("Initialization failed: Empty DataFrame provided.")
         drug_data = pd.DataFrame() # Ensure drug_data is a DataFrame even if empty
         return
 
-    drug_data = data_df.copy() # Work on a copy to avoid modifying the original DataFrame passed in
+    # Take ownership of the frame rather than copying it: create_app hands this
+    # over and keeps no reference, and a copy of 17k rows of drug text costs
+    # ~50 MB of peak RSS during startup for no benefit.
+    drug_data = data_df
+
+    # The concatenated embedding text is only needed to *build* the index, which
+    # now happens offline in build_index.py. It is the single largest column
+    # (~23 MB of ~50 MB), so drop it once the index is loaded.
+    if 'combined_embedding_text' in drug_data.columns:
+        drug_data.drop(columns=['combined_embedding_text'], inplace=True)
+        logging.info("Dropped 'combined_embedding_text' from runtime data (build-time only).")
+
     logging.info(f"API initializing with data shape: {drug_data.shape}")
 
     if 'drug_id' not in drug_data.columns:
         logging.error("Initialization failed: DataFrame must contain 'drug_id' column.")
-        # Decide if you want to raise an error or just log and return empty data
-        drug_data = pd.DataFrame() # Reset to empty if critical column is missing
-        return # Stop initialization if drug_id is missing
-
-    # Set drug_id as index for efficient lookup using .loc
-    try:
-        drug_data.set_index('drug_id', inplace=True, drop=False) # Keep drug_id as a column too
-        logging.info("Set 'drug_id' as DataFrame index.")
-    except Exception as e:
-        logging.error(f"Error setting 'drug_id' as index: {e}")
-        # Handle potential issues if drug_id is not unique or has problematic values
-        drug_data = pd.DataFrame() # Reset if index setting fails critically
+        drug_data = pd.DataFrame()
         return
 
+    if drug_data.index.name != 'drug_id':
+        try:
+            drug_data.set_index('drug_id', inplace=True, drop=False)
+            logging.info("Set 'drug_id' as DataFrame index.")
+        except Exception as e:
+            logging.error(f"Error setting 'drug_id' as index: {e}")
+            drug_data = pd.DataFrame()
+            return
 
-    # Preprocess search columns by creating lowercased versions
-    search_columns['main'] = []
-    cols_to_lowercase = ['name', 'generic_name', 'brand_name']
-    for col in cols_to_lowercase:
-        if col in drug_data.columns:
-            # Ensure column is string type before lowercasing
-            if pd.api.types.is_string_dtype(drug_data[col]):
-                 drug_data[f'{col}_lower'] = drug_data[col].str.lower().fillna("") # Fill NaN with empty string for safety
-                 search_columns['main'].append(f'{col}_lower')
-                 logging.debug(f"Created lowercased column: {col}_lower")
-            else:
-                 logging.warning(f"Column '{col}' is not string dtype ({drug_data[col].dtype}), skipping lowercasing for search.")
-
-    if 'synonyms' in drug_data.columns:
-        if pd.api.types.is_string_dtype(drug_data['synonyms']):
-             drug_data['synonyms_lower'] = drug_data['synonyms'].str.lower().fillna("") # Fill NaN with empty string
-             search_columns['synonyms'] = 'synonyms_lower'
-             logging.debug("Created lowercased column: synonyms_lower")
-        else:
-             logging.warning("Column 'synonyms' is not string dtype, skipping lowercasing for search.")
-
-    # --- DEBUG LOGGING: Check for smiles column during init ---
-    if 'smiles' in drug_data.columns:
-        logging.info("API initialized: 'smiles' column FOUND in drug_data.")
-    else:
-        logging.warning("API initialized: 'smiles' column NOT FOUND in drug_data. Smiles will not be available in responses.")
-    # --- END DEBUG LOGGING ---
-
+    alias_index = _build_alias_index(drug_data)
 
     logging.info(f"API initialized successfully with {len(drug_data)} entries.")
-    logging.info(f"Available search columns: {search_columns}")
-    # Log columns in the initialized data
+    logging.info(f"Search alias index built with {len(alias_index)} keys.")
     logging.info(f"Initialized drug_data columns: {drug_data.columns.tolist()}")
 
 
-def check_resources(*required_cols):
+def _build_alias_index(df):
     """
-    Decorator to validate API resources (data, models) and required data columns.
+    Build one lowercase name -> drug_id lookup covering every way a drug can be
+    referred to, with ties resolved by how authoritative the source field is.
+
+    This replaces scanning all 17k rows with str.contains() on every request.
+    Beyond being O(1) instead of O(n), it fixes a correctness bug: the old code
+    OR-ed an exact name match together with a *substring* match against the
+    synonyms blob and then took whichever row happened to come first in the
+    CSV. Searching "Ibuprofen" returned Dexibuprofen, because Dexibuprofen's
+    synonyms contain the substring "ibuprofen" and its row is earlier.
+
+    Multi-value fields use different separators in this dataset: generic_name
+    and synonyms are newline-separated, brand_name is comma-separated.
+    """
+    # Lower number wins when two drugs claim the same alias.
+    NAME, GENERIC, SYNONYM, BRAND = 1, 2, 3, 4
+    sources = [
+        ('name', NAME, None),
+        ('generic_name', GENERIC, '\n'),
+        ('synonyms', SYNONYM, '\n'),
+        ('brand_name', BRAND, ','),
+    ]
+
+    index = {}
+
+    def add(raw, drug_id, priority):
+        key = raw.strip().lower()
+        # Single characters are too ambiguous to be useful, and the placeholder
+        # would otherwise map thousands of drugs onto one key.
+        if len(key) < 2 or key == 'not available':
+            return
+        existing = index.get(key)
+        if existing is None or priority < existing[1]:
+            index[key] = (drug_id, priority)
+
+    available = [(col, prio, sep) for col, prio, sep in sources if col in df.columns]
+    for col, _, _ in sources:
+        if col not in df.columns:
+            logging.warning(f"Search column '{col}' not present; excluded from the alias index.")
+
+    columns = {col: df[col].tolist() for col, _, _ in available}
+    drug_ids = df.index.tolist()
+
+    for row, drug_id in enumerate(drug_ids):
+        for col, priority, separator in available:
+            value = columns[col][row]
+            if not value:
+                continue
+            if separator is None:
+                add(value, drug_id, priority)
+            else:
+                for part in value.split(separator):
+                    add(part, drug_id, priority)
+
+    return index
+
+
+def check_resources(*required_cols, require_vectors=False):
+    """
+    Decorator to validate API resources (data, index) and required data columns.
+
+    Args:
+        required_cols: data columns the route reads and cannot work without.
+        require_vectors: set for routes that need the FAISS index and its
+            position map (i.e. anything doing similarity work).
     """
     def decorator(f):
         @wraps(f)
@@ -103,19 +150,75 @@ def check_resources(*required_cols):
             elif not all(col in drug_data.columns for col in required_cols):
                 missing = [col for col in required_cols if col not in drug_data.columns]
                 error = f'Required data columns missing: {missing}. Service unavailable.'
-            # Check only models needed for all routes decorated with check_resources
-            # If a route needs a specific model (like sbert), check within the route or use a more specific decorator
-            # For now, let's assume sbert is always needed if combined_embedding_text is required
-            if 'combined_embedding_text' in required_cols and sbert_model is None:
-                 error = 'SBERT model not loaded. Service unavailable.'
-            # Add checks for faiss_index and faiss_id_map if needed by the route
-            if 'combined_embedding_text' in required_cols and (faiss_index is None or faiss_id_map is None):
-                 error = 'FAISS index or ID map not loaded. Service unavailable.'
-
+            elif require_vectors and (
+                faiss_index is None
+                or faiss_id_map is None
+                or faiss_position_by_drug_id is None
+            ):
+                error = 'Search index not loaded. Service unavailable.'
 
             if error:
                 logging.error(f"Resource check failed for route {request.path}: {error}")
                 return jsonify({'error': error}), 503 # Service Unavailable
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# --- Rate limiting -----------------------------------------------------------
+# The API is public and unauthenticated, and /get_alternative spends Gemini
+# quota on every call. Without a cap, a single script can exhaust the quota or
+# trip Render's outbound-traffic threshold and get the service suspended.
+#
+# A plain in-process counter is sufficient here precisely because the service
+# runs a single worker with threads (see the Procfile). If it is ever scaled to
+# multiple processes or instances, this becomes per-process and should be
+# replaced with a shared store.
+_rate_state = {}
+_rate_lock = threading.Lock()
+_RATE_MAX_ENTRIES = 4096
+
+
+def _client_ip():
+    """Best-effort client address, honouring Render's proxy header."""
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def rate_limit(max_calls, per_seconds):
+    """Allow at most `max_calls` per `per_seconds` per client IP."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            key = (f.__name__, _client_ip())
+            now = time.monotonic()
+            cutoff = now - per_seconds
+
+            with _rate_lock:
+                # Opportunistically discard stale buckets so a long-running
+                # process cannot accumulate an entry per address seen.
+                if len(_rate_state) > _RATE_MAX_ENTRIES:
+                    for stale_key in [
+                        k for k, v in _rate_state.items() if not v or v[-1] < cutoff
+                    ]:
+                        _rate_state.pop(stale_key, None)
+
+                hits = [t for t in _rate_state.get(key, []) if t > cutoff]
+                if len(hits) >= max_calls:
+                    retry_after = max(1, int(per_seconds - (now - hits[0])))
+                    _rate_state[key] = hits
+                    logging.warning(f"Rate limit hit for {key[1]} on {request.path}")
+                    response = jsonify({
+                        'error': 'Too many requests. Please wait a moment and try again.'
+                    })
+                    response.headers['Retry-After'] = str(retry_after)
+                    return response, 429
+
+                hits.append(now)
+                _rate_state[key] = hits
+
             return f(*args, **kwargs)
         return wrapper
     return decorator
@@ -135,13 +238,9 @@ def prepare_drug_response(drug_row: pd.Series):
     # Start with the full dictionary representation of the row
     response = drug_row.to_dict()
 
-    # Exclude internal/embedding columns
+    # Exclude internal/embedding columns. No lowercase helper columns exist any
+    # more -- search runs off the alias index instead of duplicated columns.
     response.pop('combined_embedding_text', None)
-    # Exclude lowercased search columns
-    for col in search_columns.get('main', []):
-        response.pop(col, None)
-    if 'synonyms' in search_columns:
-         response.pop(search_columns['synonyms'], None)
 
     # --- Explicitly handle smiles ---
     # Check if 'smiles' column exists in the original Series AND its value is not NaN
@@ -158,51 +257,75 @@ def prepare_drug_response(drug_row: pd.Series):
 
 def find_drug(medicine_name: str):
     """
-    Efficient drug lookup in the global drug_data DataFrame
-    using preprocessed lowercased columns.
+    Resolve a user-supplied name to a single drug record.
+
+    Resolution order:
+      1. Exact match (case-insensitive) against the alias index, which prefers
+         a drug's own name over its generic name, then synonyms, then brands.
+      2. Failing that, a substring search over the same alias keys, preferring
+         the shortest matching alias so "ibupro" lands on "ibuprofen" rather
+         than on some longer unrelated string that happens to contain it.
 
     Args:
         medicine_name (str): The name to search for.
 
     Returns:
-        pd.Series or None: The DataFrame row for the found drug, or None if not found.
+        pd.Series or None: The DataFrame row for the found drug, or None.
     """
     if drug_data is None or drug_data.empty:
         logging.error("find_drug called before drug_data is initialized.")
         return None
+    if not medicine_name:
+        return None
 
-    name_lower = medicine_name.lower()
-    # Initialize mask with False for all rows
-    mask = pd.Series(False, index=drug_data.index)
+    query = medicine_name.strip().lower()
+    if not query:
+        return None
 
-    # Search main columns (name, generic_name, brand_name)
-    for col_lower in search_columns.get('main', []):
-         # Ensure the lowercased column exists before using it
-         if col_lower in drug_data.columns:
-              mask |= (drug_data[col_lower] == name_lower)
-         else:
-              logging.warning(f"Lowercase search column '{col_lower}' not found in drug_data.")
+    match = alias_index.get(query)
 
+    if match is None and len(query) >= 3:
+        # Partial input. Rank candidates by, in order:
+        #   1. whether the alias *starts with* the query -- a prefix match is
+        #      what a user typing a partial name expects. Without this, "para"
+        #      resolved to Cinacalcet via some interior substring rather than
+        #      to Paracetamol.
+        #   2. alias length, so the closest-fitting name wins.
+        #   3. field priority, so a drug's own name beats a brand alias.
+        # Gated at 3 characters: substring-matching one or two letters returns
+        # an essentially arbitrary drug.
+        best = None
+        for alias, (drug_id, priority) in alias_index.items():
+            if query in alias:
+                candidate = (0 if alias.startswith(query) else 1,
+                             len(alias), priority, drug_id)
+                if best is None or candidate < best:
+                    best = candidate
+        if best is not None:
+            match = (best[3], best[2])
+            logging.info(f"find_drug: '{medicine_name}' matched by partial name -> {match[0]}")
 
-    # Search synonyms column
-    syn_col_lower = search_columns.get('synonyms')
-    if syn_col_lower and syn_col_lower in drug_data.columns:
-         # Use .str.contains with na=False to handle empty/NaN synonyms safely
-         mask |= drug_data[syn_col_lower].str.contains(name_lower, na=False)
-    elif syn_col_lower:
-         logging.warning(f"Lowercase synonyms column '{syn_col_lower}' not found in drug_data.")
+    if match is None:
+        return None
 
+    drug_id = match[0]
+    try:
+        row = drug_data.loc[drug_id]
+    except KeyError:
+        logging.error(f"find_drug: alias resolved to drug_id {drug_id}, absent from the data.")
+        return None
 
-    # Filter the DataFrame using the mask
-    results = drug_data[mask]
-
-    # Return the first matching row if any results are found
-    return results.iloc[0] if not results.empty else None
+    # A duplicated index would make .loc return a DataFrame; take the first row.
+    if isinstance(row, pd.DataFrame):
+        row = row.iloc[0]
+    return row
 
 
 @api_bp.route('/get_alternative', methods=['GET'])
-# Require combined_embedding_text as it's needed for embedding and search
-@check_resources('combined_embedding_text')
+# Needs the similarity index; the drug's own vector comes from there too.
+@check_resources(require_vectors=True)
+# This route calls Gemini, so it carries the tightest limit.
+@rate_limit(max_calls=12, per_seconds=60)
 def get_alternative_route():
     """
     API endpoint to find similar drugs and the best alternative.
@@ -223,32 +346,35 @@ def get_alternative_route():
             logging.warning(f"/get_alternative: Medicine not found in dataset: {medicine_name}")
             return jsonify({'error': f"Medicine '{medicine_name}' not found. Please check the spelling or try a different name."}), 404
 
-        # Ensure target drug has embedding text
-        if pd.isna(target.get('combined_embedding_text')) or target.get('combined_embedding_text') == "":
-             logging.error(f"/get_alternative: Embedding text missing or empty for target drug ID {target.name}. Check data processing.")
-             return jsonify({'error': 'Internal server error: Embedding text missing for target drug.'}), 500
+        # --- Step 2: Look up the target's stored embedding and search FAISS ---
+        # The target is by definition a row that was embedded at index build
+        # time, so its vector is already in the index. Reading it back is exact
+        # and avoids loading an embedding model into the web process.
+        target_position = faiss_position_by_drug_id.get(target.name)
+        if target_position is None:
+            logging.error(
+                f"/get_alternative: Drug ID {target.name} has no position in the search index. "
+                "The index is stale relative to the data; rebuild with build_index.py."
+            )
+            return jsonify({'error': 'Internal server error: drug missing from search index.'}), 500
 
-        # --- Step 2: Generate embedding and search FAISS ---
-        logging.info(f"/get_alternative: Generating embedding and searching FAISS for: {target.get('name', 'N/A')}")
-        # Ensure sbert_model is available (checked by decorator, but defensive check)
-        if sbert_model is None:
-             logging.error("/get_alternative: SBERT model is unexpectedly None.")
-             return jsonify({'error': 'Internal server error: Embedding model not loaded.'}), 503 # Should be caught by decorator
+        logging.info(
+            f"/get_alternative: Using stored vector at position {target_position} "
+            f"for: {target.get('name', 'N/A')}"
+        )
+        embedding = get_stored_vector(faiss_index, target_position)
+        if embedding is None:
+            raise ValueError("Failed to read the stored embedding for the query drug.")
 
-        embedding = sbert_model.encode(target.combined_embedding_text, convert_to_numpy=True)
-        if embedding is None or not isinstance(embedding, np.ndarray) or embedding.size == 0:
-             raise ValueError("Failed to generate a valid numpy embedding for the query drug.")
-        logging.debug(f"/get_alternative: Embedding generated with shape: {embedding.shape}")
-
-        # Ensure FAISS resources are available (checked by decorator)
-        if faiss_index is None or faiss_id_map is None:
-             logging.error("/get_alternative: FAISS resources are unexpectedly None.")
-             return jsonify({'error': 'Internal server error: Search index not loaded.'}), 503 # Should be caught by decorator
-
-
-        # search_similar function needs to return a list of dicts with 'drug_id' and 'similarity_score'
+        # search_similar returns a list of dicts with 'drug_id' and 'similarity_score'
         logging.info("Calling search_similar with top_n=10")
-        similar_indices_scores = search_similar(embedding, faiss_index, faiss_id_map, top_n=10)
+        similar_indices_scores = search_similar(
+            embedding,
+            faiss_index,
+            faiss_id_map,
+            top_n=10,
+            exclude_position=target_position,
+        )
 
         logging.info(f"/get_alternative: search_similar returned {len(similar_indices_scores)} results.")
         if similar_indices_scores:
@@ -365,6 +491,7 @@ def get_alternative_route():
 @api_bp.route('/drug_details', methods=['GET'])
 # No specific columns required other than those needed for lookup (handled by find_drug)
 @check_resources()
+@rate_limit(max_calls=60, per_seconds=60)
 def get_drug_details_route():
     """
     API endpoint to get full details for a single drug, excluding embedding text.
@@ -394,8 +521,9 @@ def get_drug_details_route():
         return jsonify({'error': 'Internal server error retrieving drug details.'}), 500
 
 @api_bp.route('/compare_medicines', methods=['GET'])
-# Require combined_embedding_text for generating embeddings for comparison
-@check_resources('combined_embedding_text')
+# Needs the similarity index; both drugs' vectors are read from it.
+@check_resources(require_vectors=True)
+@rate_limit(max_calls=60, per_seconds=60)
 def compare_medicines_route():
     """
     API endpoint to compare the similarity of two medicines.
@@ -418,39 +546,31 @@ def compare_medicines_route():
             logging.warning(f"/compare_medicines: One or both drugs not found: {name1}, {name2}")
             return jsonify({'error': f"Medicine '{missing_drug}' not found."}), 404
 
-        # Ensure both drugs have embedding text
-        if pd.isna(drug1.get('combined_embedding_text')) or drug1.get('combined_embedding_text') == "":
-             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug1.get('name', 'N/A')}' (ID: {drug1.name}).")
-             return jsonify({'error': f"Embedding text missing for '{drug1.get('name', 'N/A')}'."}), 500
+        # Read both stored vectors out of the index rather than re-embedding.
+        # Identical result: they were built from these exact rows and are unit
+        # length, so their dot product *is* the cosine similarity.
+        position1 = faiss_position_by_drug_id.get(drug1.name)
+        position2 = faiss_position_by_drug_id.get(drug2.name)
+        for drug, position in ((drug1, position1), (drug2, position2)):
+            if position is None:
+                logging.error(
+                    f"/compare_medicines: '{drug.get('name', 'N/A')}' (ID: {drug.name}) has no "
+                    "position in the search index. Rebuild with build_index.py."
+                )
+                return jsonify({
+                    'error': f"'{drug.get('name', 'N/A')}' is missing from the search index."
+                }), 500
 
-        if pd.isna(drug2.get('combined_embedding_text')) or drug2.get('combined_embedding_text') == "":
-             logging.error(f"/compare_medicines: Embedding text missing or empty for '{drug2.get('name', 'N/A')}' (ID: {drug2.name}).")
-             return jsonify({'error': f"Embedding text missing for '{drug2.get('name', 'N/A')}'."}), 500
+        logging.info(
+            f"/compare_medicines: Reading stored vectors for "
+            f"'{drug1.get('name', 'N/A')}' and '{drug2.get('name', 'N/A')}'."
+        )
+        embedding1 = get_stored_vector(faiss_index, position1)
+        embedding2 = get_stored_vector(faiss_index, position2)
+        if embedding1 is None or embedding2 is None:
+            raise ValueError("Failed to read stored embeddings for comparison.")
 
-
-        # Get the embedding texts
-        text1 = drug1.combined_embedding_text
-        text2 = drug2.combined_embedding_text
-
-        # Generate embeddings for both texts
-        logging.info(f"/compare_medicines: Generating embeddings for '{drug1.get('name', 'N/A')}' and '{drug2.get('name', 'N/A')}'.")
-        # Ensure sbert_model is available (checked by decorator)
-        if sbert_model is None:
-             logging.error("/compare_medicines: SBERT model is unexpectedly None.")
-             return jsonify({'error': 'Internal server error: Embedding model not loaded.'}), 503 # Should be caught by decorator
-
-        embeddings = sbert_model.encode([text1, text2], convert_to_numpy=True)
-
-        if embeddings is None or not isinstance(embeddings, np.ndarray) or embeddings.shape[0] != 2 or embeddings.size == 0:
-             raise ValueError("Failed to generate valid numpy embeddings for comparison.")
-
-        embedding1 = embeddings[0].reshape(1, -1) # Reshape for cosine_similarity
-        embedding2 = embeddings[1].reshape(1, -1) # Reshape for cosine_similarity
-
-
-        # Calculate cosine similarity
-        # cosine_similarity returns a 2D array [[score]], so we extract the score
-        similarity_score = cosine_similarity(embedding1, embedding2)[0][0]
+        similarity_score = cosine_similarity_of(embedding1, embedding2)
 
         logging.info(f"/compare_medicines: Calculated similarity between '{drug1.get('name', 'N/A')}' and '{drug2.get('name', 'N/A')}': {similarity_score:.4f}")
 

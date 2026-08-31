@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedSphere</title>
+    <title>MedSphere — Compare Medicines</title>
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,11 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="bg.css">
     <link rel="stylesheet" href="loader.css">
+    <!-- Shared tokens + components, loaded after the page's base styles. -->
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="components.css">
     <style>
+        /* The homepage's soft white glow, kept but retuned to the shared token. */
         .layer-blur {
             height: 0;
             width: 30rem;
@@ -28,260 +32,170 @@
             rotate: 10deg;
         }
 
-        /* Add these styles to your existing style.css */
-
-        .compare-container h2{
-            color: rgba(255, 255, 58, 0.73);
-            font-size: 2rem;
-            font-family: 'Poppins';
-            padding: 10px;
-        }
-        .compare-container p{
-            color: white;
-            padding: 20px;
-        }
-        .drug-compare-section {
-            /* Adjust padding/margin as needed, similar to the search section */
-            padding: 20px;
-            max-width: 900px;
-            /* Slightly wider for comparison */
-            margin-left: auto;
-            margin-right: auto;
-            position: absolute;
-            top: 15vh;
-            left: 23%;
-            z-index: 2;
-            color: var(--text-color, #333);
-            margin-bottom: 60px;
-            /* Space below the comparison section */
-        }
-
+        /* The compare form laid out around the gradient VS divider. */
         .compare-box {
             display: flex;
-            align-items: center;
-            /* Vertically align items */
-            gap: 20px;
-            /* Space between inputs and VS */
-            margin-bottom: 20px;
+            align-items: flex-end;
+            gap: var(--ms-space-4);
             flex-wrap: wrap;
-            /* Allow wrapping */
             justify-content: center;
-            /* Center items when wrapped */
         }
 
-        .input-wrapper {
-            position: relative;
-            /* Needed for absolute positioning of animation span */
-            flex-grow: 1;
-            /* Allow inputs to grow */
-            min-width: 200px;
-            /* Ensure inputs are not too small */
+        .compare-box .ms-field {
+            flex: 1 1 240px;
+            min-width: 220px;
         }
 
-        .drug-compare-section input[type="text"] {
-            width: 100%;
-            /* Make input fill its wrapper */
-            padding: 12px 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1em;
-            outline: none;
-            background-color: #00000045;
-            color: white;
-            transition: background-color 0.3s ease;
-        }
-
-        .drug-compare-section input[type="text"]:focus {
-            background: rgb(227, 227, 227);
-            color: black;
-            /* Less transparent on focus */
-        }
-
-
-        /* Border Animation */
-        .input-border-animation {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            /* Starts with zero width */
-            height: 2px;
-            /* Thickness of the animated border */
-            background: linear-gradient(90deg, var(--primary-color, #007bff), var(--accent-color, #00c6ff));
-            /* Gradient color */
-            transition: width 0.7s ease-out;
-            /* Animation duration and timing */
-        }
-
-        .input-wrapper input:focus+.input-border-animation {
-            width: 100%;
-            /* Expand to full width on focus */
-        }
-
-
+        /* The VS divider echoes the homepage pill: a gradient ring with the page
+           colour punched out of the middle. */
         .compare-vs {
-            font-family: 'Rubik', sans-serif;
-            font-size: 1.5em;
-            font-weight: bold;
-            color: var(--primary-color, #007bff);
             flex-shrink: 0;
-            /* Prevent VS from shrinking */
+            align-self: center;
+            display: grid;
+            place-items: center;
+            width: 3.4rem;
+            height: 3.4rem;
+            padding: 2px;
+            border-radius: 50%;
+            background-image: var(--ms-gradient);
+            background-size: 200%;
+            animation: ms-gradient-pan 2.6s linear infinite;
+            box-shadow: var(--ms-glow-gold);
+            font-weight: 700;
+            letter-spacing: 0.04em;
         }
 
-        #compare-button {
-            padding: 12px 20px;
-            background-color: var(--accent-color, #00c6ff);
-            /* Use a different color for contrast */
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 1em;
-            cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.1s ease;
+        .compare-vs__inner {
+            display: grid;
+            place-items: center;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-color: var(--ms-bg);
+            color: var(--ms-text);
+        }
+
+        .compare-actions {
             display: flex;
-            align-items: center;
-            gap: 5px;
-            flex-shrink: 0;
-            /* Prevent button from shrinking */
+            justify-content: center;
+            margin-top: var(--ms-space-5);
         }
 
-        #compare-button i {
-            font-size: 1.2em;
-        }
-
-        #compare-button:hover {
-            background-color: var(--accent-dark-color, #0099cc);
-        }
-
-        #compare-button:active {
-            transform: scale(0.98);
+        @media screen and (max-width: 768px) {
+            .compare-box { flex-direction: column; align-items: stretch; }
+            .compare-vs { align-self: center; }
         }
     </style>
 </head>
 
-<body>
+<body data-ms-page="compare">
     <div id="main-content">
-        <div class="background">
-            <div class="context">
-            </div>
-            <div class="area">
-                <ul class="circles">
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                </ul>
-            </div>
-        </div>
         <div class="layer-blur"></div>
 
-        <header>
-            <nav>
-                <div class="sidebar">
-                    <div class="logo-content">
-                        <div class="logo">
-                            <img src="logo.png" alt="" class="log">
-                            <span>MedSphere</span>
-                            <i class='bx bx-menu' id="btn"></i>
+        <main class="ms-shell">
+            <div class="ms-title">
+                <h2>Compare Medicines</h2>
+                <h2 aria-hidden="true">Compare Medicines</h2>
+            </div>
+
+            <p class="ms-panel__body" style="text-align:center; max-width:640px; margin:0 auto var(--ms-space-5);">
+                Dive deep into the details and compare pharmaceutical information side-by-side.
+            </p>
+
+            <div class="ms-panel ms-panel--lg ms-panel--static">
+                <div class="compare-box">
+                    <div class="ms-field">
+                        <label class="ms-label" for="drug-name-input-1">First Drug</label>
+                        <div class="ms-input-wrap">
+                            <input type="text" id="drug-name-input-1" class="ms-input"
+                                placeholder="Enter first drug name" autocomplete="off">
                         </div>
                     </div>
-                    <ul>
-                        <li><a href="index.html">
-                                <i class='bx bx-home-smile'></i>
-                                <span class="nav-item">Home</span>
-                            </a></li>
-                        <li><a href="about.html">
-                                <i class='bx bxs-contact'></i>
-                                <span class="nav-item">About</span>
-                            </a></li>
-                        <li class="active"><a href="index.html#key-header">
-                                <i class='bx bx-analyse'></i>
-                                <span class="nav-item">Medicine Analyzer</span>
-                            </a></li>
-                        <li><a href="">
-                                <i class='bx bxs-color'></i>
-                                <span class="nav-item">Learn More</span>
-                            </a></li>
-                    </ul>
+
+                    <span class="compare-vs" aria-hidden="true">
+                        <span class="compare-vs__inner">VS</span>
+                    </span>
+
+                    <div class="ms-field">
+                        <label class="ms-label" for="drug-name-input-2">Second Drug</label>
+                        <div class="ms-input-wrap">
+                            <input type="text" id="drug-name-input-2" class="ms-input"
+                                placeholder="Enter second drug name" autocomplete="off">
+                        </div>
+                    </div>
                 </div>
-            </nav>
-        </header>
-        <div class="drug-compare-section">
-            <div class="compare-container">
-                <h2>Uncover the Differences: Compare Any Two Medicines</h2>
-                <p class="subheading">Dive deep into the details and compare pharmaceutical information side-by-side.
-                </p>
-                <div class="compare-box">
-                    <div class="input-wrapper">
-                        <input type="text" id="drug-name-input-1" placeholder="Enter first drug name">
-                        <span class="input-border-animation"></span>
-                    </div>
-                    <span class="compare-vs">VS</span>
-                    <div class="input-wrapper">
-                        <input type="text" id="drug-name-input-2" placeholder="Enter second drug name">
-                        <span class="input-border-animation"></span>
-                    </div>
-                    <button id="compare-button">
-                        <i class='bx bx-git-compare'></i> Compare
+
+                <div id="compare-error" class="ms-alert ms-alert--error" role="alert"
+                    style="display:none; margin-top:var(--ms-space-4);">
+                    <i class='bx bx-error-circle' aria-hidden="true"></i>
+                    <span class="compare-error__text">Please enter names for both drugs to compare.</span>
+                </div>
+
+                <div class="compare-actions">
+                    <button id="compare-button" class="ms-btn ms-btn--gradient" type="button">
+                        <span class="ms-btn__label">
+                            <i class='bx bx-git-compare' aria-hidden="true"></i> Compare
+                        </span>
                     </button>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
+
+    <script src="config.js"></script>
+    <script src="site-chrome.js" defer></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var input1 = document.getElementById('drug-name-input-1');
+            var input2 = document.getElementById('drug-name-input-2');
+            var button = document.getElementById('compare-button');
+            var errorBox = document.getElementById('compare-error');
+            var errorText = errorBox ? errorBox.querySelector('.compare-error__text') : null;
+
+            function showError(message) {
+                if (!errorBox) return;
+                if (errorText) errorText.textContent = message;
+                errorBox.style.display = 'flex';
+            }
+
+            function clearError() {
+                if (errorBox) errorBox.style.display = 'none';
+            }
+
+            /* Restore the previous search so users can tweak one name. */
+            try {
+                var saved = JSON.parse(sessionStorage.getItem('compareSearch') || 'null');
+                if (saved) {
+                    if (saved.drug1) input1.value = saved.drug1;
+                    if (saved.drug2) input2.value = saved.drug2;
+                }
+            } catch (e) { /* ignore malformed storage */ }
+
+            [input1, input2].forEach(function (el) {
+                el.addEventListener('input', clearError);
+            });
+
+            button.addEventListener('click', function () {
+                var drug1 = input1.value.trim();
+                var drug2 = input2.value.trim();
+
+                if (!drug1 || !drug2) {
+                    showError('Please enter names for both drugs to compare.');
+                    return;
+                }
+
+                clearError();
+                try {
+                    sessionStorage.setItem('compareSearch', JSON.stringify({ drug1: drug1, drug2: drug2 }));
+                } catch (e) { /* storage may be unavailable; the query string carries the names */ }
+
+                window.location.href = 'compare2.html?drug1=' +
+                    encodeURIComponent(drug1) + '&drug2=' + encodeURIComponent(drug2);
+            });
+        })();
+    </script>
 </body>
-<script>
-    let btn = document.querySelector("#btn")
-    let sidebar = document.querySelector(".sidebar")
-    let navItems = document.querySelectorAll(".nav-item")
-    btn.onclick = function () {
-        sidebar.classList.toggle("active")
-        navItems.forEach(item => {
-            item.classList.toggle("active");
-        });
-    }
-    window.addEventListener('load', () => {
-        const preloader = document.getElementById('preloader');
-        const content = document.getElementById('main-content');
-
-        preloader.classList.add('hidden');
-        setTimeout(() => {
-            preloader.style.display = 'none';
-            content.style.display = 'block';
-        }, 500); // match transition duration
-    });
-    document.getElementById('compare-button').addEventListener('click', async () => {
-        const drugNameInput1 = document.getElementById('drug-name-input-1');
-        const drugNameInput2 = document.getElementById('drug-name-input-2');
-
-        const drugName1 = drugNameInput1.value.trim();
-        const drugName2 = drugNameInput2.value.trim();
-
-        if (!drugName1 || !drugName2 ) {
-            compareResultsDiv.innerHTML = '<p class="error-message">Please enter names for both drugs to compare.</p>';
-            return;
-        }
-        const newPageUrl = `compare2.html?drug1=${encodeURIComponent(drugName1)}&drug2=${encodeURIComponent(drugName2)}`;
-        window.location.href = newPageUrl;
-    })
-    // Before navigating from page1
-localStorage.setItem("lastSearch", document.getElementById("search").value);
-
-// On load in page1
-window.onload = function() {
-  const lastSearch = localStorage.getItem("lastSearch");
-  if (lastSearch) {
-    document.getElementById("search").value = lastSearch;
-    // Re-render previous content if needed
-  }
-};
-</script>
 
 </html>

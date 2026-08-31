@@ -4,116 +4,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drug Comparison - Molecular Insights</title>
+    <title>Drug Comparison — MedSphere</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" href="logo.png" type="image/png">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Edu+AU+VIC+WA+NT+Arrows:wght@400..700&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Oxanium:wght@200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Protest+Revolution&family=Rubik:ital,wght@0,300..900;1,300..900&family=Sixtyfour+Convergence&family=Tiny5&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="bg.css">
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="components.css">
     <style>
-        :root {
-            --primary: #ff7b54;
-            --secondary: #3a86ff;
-            --dark: #1a1a1a;
-            --light: #f5f5f5;
-            --gray: #888;
-            --border-radius: 12px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-
-        body {
-            background-color: var(--dark);
-            color: white;
-            min-height: 100vh;
-            background-image:
-                radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 20%),
-                radial-gradient(circle at 80% 60%, rgba(255, 255, 255, 0.03) 0%, transparent 20%);
-            background-size: 100% 100%;
-            overflow-x: hidden;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
+        /* Similarity centrepiece: the ring + meter sit inside the accent panel. */
+        .similarity-inner {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 2rem;
+            justify-content: space-between;
+            gap: var(--ms-space-5);
+            flex-wrap: wrap;
         }
 
-        .logo .triangle {
-            color: var(--primary);
+        .similarity-copy {
+            flex: 1 1 320px;
+            display: flex;
+            flex-direction: column;
+            gap: var(--ms-space-3);
         }
 
+        .similarity-copy h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--ms-text-bright);
+        }
+
+        .similarity-copy p {
+            margin: 0;
+            color: var(--ms-text-muted);
+            font-size: 0.92rem;
+        }
+
+        .similarity-ring-wrap {
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+        }
+
+        /* Two drug cards side by side. */
         .drug-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
+            gap: var(--ms-space-4);
         }
 
-        .drug-card {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .drug-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .drug-header {
-            padding: 1.5rem;
-            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.1) 100%);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        .drug-card__head {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--ms-space-2);
             text-align: center;
-        }
-
-        .left-drug .drug-header {
-            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.1) 100%);
-        }
-
-        .right-drug .drug-header {
-            background: linear-gradient(135deg, rgba(58, 134, 255, 0.2) 0%, rgba(255, 123, 84, 0.1) 100%);
         }
 
         .drug-name {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-
-        .drug-id {
-            font-size: 1rem;
-            opacity: 0.7;
-            margin-bottom: 1rem;
-        }
-
-        .drug-indication {
-            padding: 1.5rem;
-            text-align: center;
-            font-size: 1rem;
-            line-height: 1.5;
+            color: var(--ms-text-bright);
         }
 
         .molecule-image {
             width: 100%;
             height: 200px;
-            background-color: rgba(0, 0, 0, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: var(--ms-space-3);
+            margin: var(--ms-space-3) 0;
+            border-radius: var(--ms-radius);
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--ms-border-hairline);
         }
 
         .molecule-image img {
@@ -122,561 +93,397 @@
             object-fit: contain;
         }
 
-        .properties-selector {
-            margin: 2rem 0;
+        .molecule-image img:not([src]),
+        .molecule-image img[src=""] { display: none; }
+
+        .drug-indication {
+            color: var(--ms-text-muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
             text-align: center;
         }
 
-        .select-property {
-            display: inline-block;
-            margin: 0 auto;
-        }
-
-        select {
-            background-color: rgba(0, 0, 0, 0.3);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0.75rem 1.5rem;
-            border-radius: 50px;
-            font-size: 1rem;
-            min-width: 300px;
-            text-align: center;
-        }
-
-        select:focus {
-            outline: none;
-            border-color: var(--primary);
+        /* The property selector, restyled as gradient tabs. */
+        .properties-slider {
+            margin: var(--ms-space-2) 0 var(--ms-space-4);
         }
 
         .details-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .details-card {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            min-height: 200px;
-        }
-
-        .details-card h3 {
-            color: var(--primary);
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-
-        .property-item {
-            margin-bottom: 1rem;
-        }
-
-        .property-label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.6;
-            margin-bottom: 0.25rem;
-        }
-
-        .property-value {
-            font-size: 1rem;
-            line-height: 1.5;
-        }
-
-        .not-available {
-            opacity: 0.5;
-            font-style: italic;
+            gap: var(--ms-space-4);
         }
 
         .action-buttons {
             display: flex;
             justify-content: space-between;
-            margin-top: 2rem;
+            gap: var(--ms-space-3);
+            margin-top: var(--ms-space-5);
+            flex-wrap: wrap;
         }
 
-        .button {
-            background-color: transparent;
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0.75rem 1.5rem;
-            border-radius: 50px;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .button:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .button-primary {
-            background-color: var(--primary);
-            border-color: var(--primary);
-        }
-
-        .button-primary:hover {
-            background-color: rgba(255, 123, 84, 0.8);
-        }
-
-        footer {
-            margin-top: 4rem;
-            text-align: center;
-            opacity: 0.6;
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 768px) {
+        @media screen and (max-width: 768px) {
             .drug-grid,
-            .details-grid {
-                grid-template-columns: 1fr;
-            }
+            .details-grid { grid-template-columns: 1fr; }
+            .similarity-inner { justify-content: center; text-align: center; }
         }
-        .comparison-container {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .similarity-card {
-            background: linear-gradient(135deg, rgba(255, 123, 84, 0.2) 0%, rgba(58, 134, 255, 0.2) 100%);
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .similarity-info {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .similarity-info h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .similarity-percentage {
-            font-size: 3rem;
-            font-weight: 700;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .similarity-percentage .percentage {
-            font-size: 2rem;
-            opacity: 0.8;
-        }
-
-        .molecule-viz {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .molecule-viz::before {
-            content: "";
-            position: absolute;
-            width: 80%;
-            height: 80%;
-            border-radius: 50%;
-            border: 2px dashed rgba(255, 255, 255, 0.3);
-            animation: rotate 15s linear infinite;
-        }
-
-        .molecule-viz::after {
-            content: "";
-            position: absolute;
-            width: 60%;
-            height: 60%;
-            border-radius: 50%;
-            border: 2px dashed rgba(58, 134, 255, 0.5);
-            animation: rotate 10s linear infinite reverse;
-        }
-
-        @keyframes rotate {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        .properties-slider {
-    margin: 2rem 0;
-    text-align: center;
-}
-
-.slider-container {
-    width: 80%;
-    margin: 0 auto;
-    position: relative;
-}
-
-.slider {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 8px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    outline: none;
-    margin: 1rem 0;
-}
-
-.slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--primary);
-    cursor: pointer;
-    border: 2px solid white;
-}
-
-.slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--primary);
-    cursor: pointer;
-    border: 2px solid white;
-}
-
-.slider-labels {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    margin-top: 0.5rem;
-}
-
-.slider-labels span {
-    font-size: 0.8rem;
-    opacity: 0.7;
-    width: 20%;
-    text-align: center;
-}
     </style>
 </head>
 
-<body>
+<body data-ms-page="compare">
+    <div id="main-content">
+        <div class="layer-blur"></div>
 
-    <div class="container">
-        <div class="logo">
-            <span class="triangle">Δ</span> Molecular Drug Comparison
-        </div>
-        
-        <div class="comparison-container">
-            <div class="similarity-card">
-                <div class="similarity-info">
-                    <h2>Drug Similarity Analysis</h2>
-                    <p>Based on molecular structure and pharmacological properties</p>
-                    <div class="similarity-percentage">
-                        <span id="similarityValue">94.43</span>
-                        <span class="percentage">%</span>
+        <main class="ms-shell">
+            <div class="ms-title">
+                <h2>Drug Comparison</h2>
+                <h2 aria-hidden="true">Drug Comparison</h2>
+            </div>
+
+            <!-- Error surface (kept with an id JS can target). -->
+            <div id="compare-error" class="ms-alert ms-alert--error" role="alert" style="display:none;">
+                <i class='bx bx-error-circle' aria-hidden="true"></i>
+                <span class="compare-error__text"></span>
+            </div>
+
+            <!-- Loading state, shown while the request is in flight. -->
+            <div id="compare-loading" class="ms-loading">
+                <div class="ms-spinner" aria-hidden="true"></div>
+                <span>Comparing medicines…</span>
+            </div>
+
+            <!-- Results, revealed once data arrives. -->
+            <div id="compare-results" style="display:none;">
+                <!-- Similarity centrepiece -->
+                <div class="ms-panel ms-panel--accent" style="margin-bottom:var(--ms-space-5);">
+                    <div class="ms-panel__inner">
+                        <div class="similarity-inner">
+                            <div class="similarity-copy">
+                                <h2>Drug Similarity Analysis</h2>
+                                <p>Based on molecular structure and pharmacological properties.</p>
+                                <div class="ms-meter" id="similarityMeter" style="--ms-meter-value:0%;">
+                                    <div class="ms-meter__head">
+                                        <span class="ms-meter__label">Similarity</span>
+                                        <span class="ms-meter__value ms-gradient-text">
+                                            <span id="similarityValue">0</span>%
+                                        </span>
+                                    </div>
+                                    <div class="ms-meter__track">
+                                        <div class="ms-meter__fill"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="similarity-ring-wrap">
+                                <div class="ms-ring" id="similarityRing" style="--ms-ring-deg:0deg;">
+                                    <span class="ms-ring__value"><span id="similarityRingValue">0</span>%</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="molecule-viz"></div>
-            </div>
-        <!-- First Row: Basic Drug Info with Indication and Structure -->
-        <div class="drug-grid">
-            <div class="drug-card left-drug">
-                <div class="drug-header">
-                    <div class="drug-name" id="drug1Name">Loading...</div>
-                    <div class="drug-id" id="drug1Id">-</div>
 
-                </div>
-                <div class="molecule-image">
-                    <img id="drug1Structure" alt="Drug 1 molecular structure">
-                </div>
-                <div class="drug-indication" id="drug1Indication">
-                    Loading indication...
-                </div>
+                <!-- Drug cards -->
+                <div class="drug-grid">
+                    <div class="ms-panel">
+                        <div class="drug-card__head">
+                            <div class="drug-name" id="drug1Name">Loading…</div>
+                            <span class="ms-badge ms-badge--accent" id="drug1Id">-</span>
+                        </div>
+                        <div class="molecule-image">
+                            <img id="drug1Structure" alt="Drug 1 molecular structure">
+                        </div>
+                        <div class="drug-indication" id="drug1Indication">Loading indication…</div>
+                    </div>
 
-            </div>
-
-            <div class="drug-card right-drug">
-                <div class="drug-header">
-                    <div class="drug-name" id="drug2Name">Loading...</div>
-                    <div class="drug-id" id="drug2Id">-</div>
-                </div>
-                <div class="molecule-image">
-                    <img id="drug2Structure" alt="Drug 2 molecular structure">
-                </div>
-                <div class="drug-indication" id="drug2Indication">
-                    Loading indication...
-                </div>
-
-            </div>
-        </div>
-        </div>
-
-        <div class="properties-slider">
-            <div class="slider-container">
-                <input type="range" min="0" max="4" value="0" class="slider" id="propertySlider">
-                <div class="slider-labels">
-                    <span>Mechanism</span>
-                    <span>Half Life</span>
-                    <span>Protein Binding</span>
-                    <span>Synonyms</span>
-                    <span>SMILES</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Second Row: Detailed Property Comparison -->
-        <div class="details-grid">
-            <div class="details-card left-drug">
-                <h3>Drug 1 Details</h3>
-                <div id="drug1Details">
-                    <div class="property-item">
-                        <div class="property-value not-available">Select a property from above</div>
+                    <div class="ms-panel">
+                        <div class="drug-card__head">
+                            <div class="drug-name" id="drug2Name">Loading…</div>
+                            <span class="ms-badge ms-badge--accent" id="drug2Id">-</span>
+                        </div>
+                        <div class="molecule-image">
+                            <img id="drug2Structure" alt="Drug 2 molecular structure">
+                        </div>
+                        <div class="drug-indication" id="drug2Indication">Loading indication…</div>
                     </div>
                 </div>
-            </div>
 
-            <div class="details-card right-drug">
-                <h3>Drug 2 Details</h3>
-                <div id="drug2Details">
-                    <div class="property-item">
-                        <div class="property-value not-available">Select a property from above</div>
+                <!-- Property selector -->
+                <div class="properties-slider">
+                    <div class="ms-tabs" role="tablist" id="propertyTabs">
+                        <button type="button" class="ms-tab is-active" data-property="mechanism" role="tab" aria-selected="true">Mechanism</button>
+                        <button type="button" class="ms-tab" data-property="half_life" role="tab" aria-selected="false">Half Life</button>
+                        <button type="button" class="ms-tab" data-property="protein_binding" role="tab" aria-selected="false">Protein Binding</button>
+                        <button type="button" class="ms-tab" data-property="synonyms" role="tab" aria-selected="false">Synonyms</button>
+                        <button type="button" class="ms-tab" data-property="smiles" role="tab" aria-selected="false">SMILES</button>
+                    </div>
+                    <!-- Hidden legacy slider kept so any external reference resolves. -->
+                    <input type="range" min="0" max="4" value="0" id="propertySlider" class="ms-sr-only" tabindex="-1" aria-hidden="true">
+                </div>
+
+                <!-- Detailed property comparison -->
+                <div class="details-grid">
+                    <div class="ms-panel">
+                        <div class="ms-panel__head">
+                            <h3 class="ms-panel__title">Drug 1 Details</h3>
+                        </div>
+                        <div class="ms-kv" id="drug1Details">
+                            <div class="ms-kv__item">
+                                <span class="ms-kv__value">Select a property above.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ms-panel">
+                        <div class="ms-panel__head">
+                            <h3 class="ms-panel__title">Drug 2 Details</h3>
+                        </div>
+                        <div class="ms-kv" id="drug2Details">
+                            <div class="ms-kv__item">
+                                <span class="ms-kv__value">Select a property above.</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Actions -->
+                <div class="action-buttons">
+                    <button class="ms-btn ms-btn--ghost" id="backButton" type="button">
+                        <i class='bx bx-arrow-back' aria-hidden="true"></i> Back to Search
+                    </button>
+                    <button class="ms-btn" id="downloadButton" type="button">
+                        <i class='bx bx-download' aria-hidden="true"></i> Download Full Data
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-            <button class="button" id="backButton">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                Back to Search
-            </button>
-            <button class="button button-primary" id="downloadButton">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 15V3M12 15L8 11M12 15L16 11M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                Download Full Data
-            </button>
-        </div>
-
-        <footer>
-            <p>© 2025 Molecular Drug Comparison — Compare drugs with detailed insights.
-            </p>
-        </footer>
+            <footer class="ms-footer">
+                <p>© 2025 MedSphere — Compare drugs with detailed insights.</p>
+            </footer>
+        </main>
     </div>
 
+    <script src="config.js"></script>
+    <script src="site-chrome.js" defer></script>
     <script>
-// Store the API data globally for download functionality
-let drugComparisonData = null;
+        (function () {
+            'use strict';
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Get drug names from URL query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const drugName1 = urlParams.get('drug1');
-    const drugName2 = urlParams.get('drug2');
+            // Store the API data globally for download functionality.
+            var drugComparisonData = null;
 
-    // Basic validation
-    if (!drugName1 || !drugName2) {
-        alert('Error: Drug names not provided for comparison.');
-        return;
-    }
+            var loadingEl = document.getElementById('compare-loading');
+            var resultsEl = document.getElementById('compare-results');
+            var errorEl = document.getElementById('compare-error');
+            var errorText = errorEl ? errorEl.querySelector('.compare-error__text') : null;
 
-    // Construct the API URL
-    const apiUrl = `https://adb2-2409-40e3-3d-ee57-3116-fa86-8e83-c758.ngrok-free.app/api/compare_medicines?name1=${encodeURIComponent(drugName1)}&name2=${encodeURIComponent(drugName2)}`;
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'ngrok-skip-browser-warning': 'true'
+            function showError(message) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (errorEl) {
+                    if (errorText) errorText.textContent = message;
+                    errorEl.style.display = 'flex';
+                }
             }
-        });
 
-        if (!response.ok) {
-            throw new Error(`Server responded with status ${response.status}`);
-        }
+            function showResults() {
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (resultsEl) resultsEl.style.display = 'block';
+            }
 
-        const data = await response.json();
+            document.addEventListener('DOMContentLoaded', function () {
+                var params = new URLSearchParams(window.location.search);
+                var drugName1 = params.get('drug1');
+                var drugName2 = params.get('drug2');
 
-        if (!data || !data.drug1 || !data.drug2 || data.error) {
-            throw new Error(data?.error || 'Invalid data format received');
-        }
+                if (!drugName1 || !drugName2) {
+                    showError('Drug names were not provided. Go back and enter two medicines to compare.');
+                    return;
+                }
 
-        // Store the data for download
-        drugComparisonData = data;
+                if (!window.MedSphereConfig || typeof window.MedSphereConfig.apiFetch !== 'function') {
+                    showError('Configuration failed to load. Please refresh the page.');
+                    return;
+                }
 
-        // Populate basic drug info
-        populateBasicInfo(data);
+                window.MedSphereConfig
+                    .apiFetch('/api/compare_medicines', { name1: drugName1, name2: drugName2 })
+                    .then(function (data) {
+                        if (!data || !data.drug1 || !data.drug2) {
+                            throw new Error('The server returned an unexpected response.');
+                        }
 
-        // Set up slider event listener
-        const propertySlider = document.getElementById('propertySlider');
-        propertySlider.addEventListener('input', function() {
-            const properties = ['mechanism', 'half_life', 'protein_binding', 'synonyms', 'smiles'];
-            const selectedProperty = properties[this.value];
-            updatePropertyDetails(selectedProperty, data);
-        });
+                        drugComparisonData = data;
+                        showResults();
+                        populateBasicInfo(data);
+                        updateSimilarity(data);
+                        setupPropertyTabs(data);
+                        updatePropertyDetails('mechanism', data);
+                    })
+                    .catch(function (error) {
+                        showError(error && error.message
+                            ? error.message
+                            : 'An error occurred while fetching drug data.');
+                    });
+            });
 
-        // Initialize with first property
-        updatePropertyDetails('mechanism', data);
+            function updateSimilarity(data) {
+                var pct = Number(data.similarity_percentage);
+                if (!isFinite(pct)) {
+                    pct = Number(data.similarity_score) * 100;
+                }
+                if (!isFinite(pct)) pct = 0;
+                pct = Math.max(0, Math.min(100, pct));
 
-    } catch (error) {
-        console.error('Error:', error);
-        alert('An error occurred while fetching drug data: ' + error.message);
-        
-        // Set placeholder data in case of error
-        document.getElementById('drug1Name').textContent = drugName1;
-        document.getElementById('drug2Name').textContent = drugName2;
-        document.getElementById('drug1Indication').textContent = 'Failed to load indication';
-        document.getElementById('drug2Indication').textContent = 'Failed to load indication';
-    }
-});
+                var rounded = Math.round(pct * 100) / 100;
 
-function populateBasicInfo(data) {
-    // Update drug names and IDs
-    document.getElementById('drug1Name').textContent = data.drug1.name || 'Not Available';
-    document.getElementById('drug1Id').textContent = data.drug1.drug_id || 'Not Available';
-    document.getElementById('drug1Indication').textContent = data.drug1.indication || 'Not Available';
-    
-    document.getElementById('drug2Name').textContent = data.drug2.name || 'Not Available';
-    document.getElementById('drug2Id').textContent = data.drug2.drug_id || 'Not Available';
-    document.getElementById('drug2Indication').textContent = data.drug2.indication || 'Not Available';
+                var valueEl = document.getElementById('similarityValue');
+                var ringValueEl = document.getElementById('similarityRingValue');
+                var meterEl = document.getElementById('similarityMeter');
+                var ringEl = document.getElementById('similarityRing');
 
-    // Generate molecular structure images from SMILES using NIH API
-    if (data.drug1.smiles) {
-        const smiles1 = encodeURIComponent(data.drug1.smiles);
-        document.getElementById('drug1Structure').src = 
-            `https://cactus.nci.nih.gov/chemical/structure/${smiles1}/image?format=svg&width=300&height=200`;
-    }
-    
-    if (data.drug2.smiles) {
-        const smiles2 = encodeURIComponent(data.drug2.smiles);
-        document.getElementById('drug2Structure').src = 
-            `https://cactus.nci.nih.gov/chemical/structure/${smiles2}/image?format=svg&width=300&height=200`;
-    }
-}
+                if (valueEl) valueEl.textContent = rounded;
+                if (ringValueEl) ringValueEl.textContent = rounded;
+                if (meterEl) meterEl.style.setProperty('--ms-meter-value', pct + '%');
+                if (ringEl) ringEl.style.setProperty('--ms-ring-deg', (pct * 3.6) + 'deg');
+            }
 
-function updatePropertyDetails(selectedProperty, data) {
-    const propertyLabels = {
-        'mechanism': 'Mechanism of Action',
-        'half_life': 'Half Life',
-        'protein_binding': 'Protein Binding',
-        'synonyms': 'Synonyms',
-        'smiles': 'SMILES Notation'
-    };
+            function populateBasicInfo(data) {
+                document.getElementById('drug1Name').textContent = data.drug1.name || 'Not Available';
+                document.getElementById('drug1Id').textContent = data.drug1.drug_id || 'Not Available';
+                document.getElementById('drug1Indication').textContent = data.drug1.indication || 'Not Available';
 
-    // Get property values
-    const drug1Value = data.drug1[selectedProperty] || 'Not Available';
-    const drug2Value = data.drug2[selectedProperty] || 'Not Available';
+                document.getElementById('drug2Name').textContent = data.drug2.name || 'Not Available';
+                document.getElementById('drug2Id').textContent = data.drug2.drug_id || 'Not Available';
+                document.getElementById('drug2Indication').textContent = data.drug2.indication || 'Not Available';
 
-    // Get property label based on selected value
-    const propertyLabel = propertyLabels[selectedProperty] || selectedProperty;
+                // Generate molecular structure images from SMILES via the NIH resolver.
+                if (data.drug1.smiles && data.drug1.smiles !== 'Not Available') {
+                    document.getElementById('drug1Structure').src =
+                        'https://cactus.nci.nih.gov/chemical/structure/' +
+                        encodeURIComponent(data.drug1.smiles) + '/image?format=svg&width=300&height=200';
+                }
+                if (data.drug2.smiles && data.drug2.smiles !== 'Not Available') {
+                    document.getElementById('drug2Structure').src =
+                        'https://cactus.nci.nih.gov/chemical/structure/' +
+                        encodeURIComponent(data.drug2.smiles) + '/image?format=svg&width=300&height=200';
+                }
+            }
 
-    // Update drug 1 details
-    const drug1Details = document.getElementById('drug1Details');
-    drug1Details.innerHTML = `
-        <div class="property-item">
-            <div class="property-label">${propertyLabel}</div>
-            <div class="property-value ${drug1Value === 'Not Available' ? 'not-available' : ''}">
-                ${drug1Value}
-            </div>
-        </div>
-    `;
+            var PROPERTY_LABELS = {
+                mechanism: 'Mechanism of Action',
+                half_life: 'Half Life',
+                protein_binding: 'Protein Binding',
+                synonyms: 'Synonyms',
+                smiles: 'SMILES Notation'
+            };
 
-    // Update drug 2 details
-    const drug2Details = document.getElementById('drug2Details');
-    drug2Details.innerHTML = `
-        <div class="property-item">
-            <div class="property-label">${propertyLabel}</div>
-            <div class="property-value ${drug2Value === 'Not Available' ? 'not-available' : ''}">
-                ${drug2Value}
-            </div>
-        </div>
-    `;
-}
+            function renderDetails(containerId, label, value) {
+                var container = document.getElementById(containerId);
+                var isNA = !value || value === 'Not Available';
+                var item = document.createElement('div');
+                item.className = 'ms-kv__item';
 
-// Download button functionality
-document.getElementById('downloadButton').addEventListener('click', function() {
-    if (!drugComparisonData) {
-        alert('No drug data available to download.');
-        return;
-    }
+                var labelEl = document.createElement('span');
+                labelEl.className = 'ms-kv__label';
+                labelEl.textContent = label;
 
-    // Create a formatted text report
-    let reportContent = `Drug Comparison Report\n`;
-    reportContent += `Generated on: ${new Date().toLocaleString()}\n\n`;
-    
-    // Add drug 1 info
-    reportContent += `=== DRUG 1 ===\n`;
-    reportContent += `Name: ${drugComparisonData.drug1.name || 'Not Available'}\n`;
-    reportContent += `Drug ID: ${drugComparisonData.drug1.drug_id || 'Not Available'}\n`;
-    reportContent += `Indication: ${drugComparisonData.drug1.indication || 'Not Available'}\n\n`;
-    
-    // Add drug 2 info
-    reportContent += `=== DRUG 2 ===\n`;
-    reportContent += `Name: ${drugComparisonData.drug2.name || 'Not Available'}\n`;
-    reportContent += `Drug ID: ${drugComparisonData.drug2.drug_id || 'Not Available'}\n`;
-    reportContent += `Indication: ${drugComparisonData.drug2.indication || 'Not Available'}\n\n`;
-    
-    // Add all properties
-    reportContent += `=== DETAILED PROPERTIES ===\n`;
-    const properties = [
-        { label: 'Mechanism of Action', key: 'mechanism' },
-        { label: 'Half Life', key: 'half_life' },
-        { label: 'Protein Binding', key: 'protein_binding' },
-        { label: 'Synonyms', key: 'synonyms' },
-        { label: 'SMILES Notation', key: 'smiles' }
-    ];
-    
-    properties.forEach(prop => {
-        const drug1Value = drugComparisonData.drug1[prop.key] || 'Not Available';
-        const drug2Value = drugComparisonData.drug2[prop.key] || 'Not Available';
-        
-        reportContent += `\n${prop.label}:\n`;
-        reportContent += `  Drug 1: ${drug1Value}\n`;
-        reportContent += `  Drug 2: ${drug2Value}\n`;
-    });
+                var valueEl = document.createElement('p');
+                valueEl.className = 'ms-kv__value';
+                valueEl.textContent = isNA ? 'Not Available' : value;
+                if (isNA) valueEl.style.opacity = '0.55';
 
-    // Create download link
-    const blob = new Blob([reportContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `drug_comparison_${drugComparisonData.drug1.name}_vs_${drugComparisonData.drug2.name}.txt`;
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    
-    // Clean up
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-});
+                item.appendChild(labelEl);
+                item.appendChild(valueEl);
+                container.innerHTML = '';
+                container.appendChild(item);
+            }
 
-// Back button functionality
-document.getElementById('backButton').addEventListener('click', function() {
-    window.location.href = 'compare_page.html'; // Update with your actual search page
-});
+            function updatePropertyDetails(property, data) {
+                var label = PROPERTY_LABELS[property] || property;
+                renderDetails('drug1Details', label, data.drug1[property]);
+                renderDetails('drug2Details', label, data.drug2[property]);
+            }
+
+            function setupPropertyTabs(data) {
+                var tabs = document.querySelectorAll('#propertyTabs .ms-tab');
+                var slider = document.getElementById('propertySlider');
+                var order = ['mechanism', 'half_life', 'protein_binding', 'synonyms', 'smiles'];
+
+                tabs.forEach(function (tab, index) {
+                    tab.addEventListener('click', function () {
+                        tabs.forEach(function (t) {
+                            t.classList.remove('is-active');
+                            t.setAttribute('aria-selected', 'false');
+                        });
+                        tab.classList.add('is-active');
+                        tab.setAttribute('aria-selected', 'true');
+                        if (slider) slider.value = String(index);
+                        updatePropertyDetails(tab.getAttribute('data-property'), data);
+                    });
+                });
+
+                // Keep the hidden slider in sync for any external consumer.
+                if (slider) {
+                    slider.addEventListener('input', function () {
+                        var property = order[Number(this.value)] || 'mechanism';
+                        var target = document.querySelector('#propertyTabs .ms-tab[data-property="' + property + '"]');
+                        if (target) target.click();
+                    });
+                }
+            }
+
+            // Download button.
+            document.getElementById('downloadButton').addEventListener('click', function () {
+                if (!drugComparisonData) {
+                    showError('No drug data available to download.');
+                    return;
+                }
+
+                var d = drugComparisonData;
+                var report = 'Drug Comparison Report\n';
+                report += 'Generated on: ' + new Date().toLocaleString() + '\n\n';
+
+                report += '=== DRUG 1 ===\n';
+                report += 'Name: ' + (d.drug1.name || 'Not Available') + '\n';
+                report += 'Drug ID: ' + (d.drug1.drug_id || 'Not Available') + '\n';
+                report += 'Indication: ' + (d.drug1.indication || 'Not Available') + '\n\n';
+
+                report += '=== DRUG 2 ===\n';
+                report += 'Name: ' + (d.drug2.name || 'Not Available') + '\n';
+                report += 'Drug ID: ' + (d.drug2.drug_id || 'Not Available') + '\n';
+                report += 'Indication: ' + (d.drug2.indication || 'Not Available') + '\n\n';
+
+                report += 'Similarity: ' + (d.similarity_percentage != null ? d.similarity_percentage + '%' : 'Not Available') + '\n\n';
+
+                report += '=== DETAILED PROPERTIES ===\n';
+                var properties = [
+                    { label: 'Mechanism of Action', key: 'mechanism' },
+                    { label: 'Half Life', key: 'half_life' },
+                    { label: 'Protein Binding', key: 'protein_binding' },
+                    { label: 'Synonyms', key: 'synonyms' },
+                    { label: 'SMILES Notation', key: 'smiles' }
+                ];
+                properties.forEach(function (prop) {
+                    report += '\n' + prop.label + ':\n';
+                    report += '  Drug 1: ' + (d.drug1[prop.key] || 'Not Available') + '\n';
+                    report += '  Drug 2: ' + (d.drug2[prop.key] || 'Not Available') + '\n';
+                });
+
+                var blob = new Blob([report], { type: 'text/plain' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = 'drug_comparison_' + (d.drug1.name || 'drug1') + '_vs_' + (d.drug2.name || 'drug2') + '.txt';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+
+            // Back button.
+            document.getElementById('backButton').addEventListener('click', function () {
+                window.location.href = 'compare_page.html';
+            });
+        })();
     </script>
 </body>
 
