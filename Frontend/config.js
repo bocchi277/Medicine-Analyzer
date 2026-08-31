@@ -16,8 +16,8 @@
   // >>> EDIT THIS after the API is deployed. <<<
   // Still the default value below? Then the deployed site is pointing at a URL
   // that probably isn't yours, and every request will fail.
-  var PRODUCTION_API_BASE = 'https://medsphere-api.onrender.com';
-  var DEFAULT_PRODUCTION_API_BASE = 'https://medsphere-api.onrender.com';
+  var PRODUCTION_API_BASE = 'https://medicine-analyzer-qd2t.onrender.com';
+  var DEFAULT_PRODUCTION_API_BASE = 'https://medicine-analyzer-qd2t.onrender.com';
 
   var LOCAL_API_BASE = 'http://127.0.0.1:8000';
 
