@@ -111,6 +111,17 @@
     }
 
     if (!response.ok) {
+      // A wrong API URL does not always fail at the network layer. Unclaimed
+      // *.onrender.com hostnames answer with a 404, which would otherwise
+      // surface as a bare "Request failed with status 404" and send you looking
+      // for a bug in the backend that isn't there.
+      if (usingDefaultProdUrl) {
+        throw new Error(
+          'The API URL is still the placeholder (' + base + '), which returned ' +
+          response.status + '. Set PRODUCTION_API_BASE in Frontend/config.js to ' +
+          'your own Render URL and redeploy.'
+        );
+      }
       throw new Error(
         (payload && payload.error) || ('Request failed with status ' + response.status)
       );

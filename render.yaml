@@ -1,61 +1,50 @@
-# Render Blueprint — deploys the API and the frontend as two services.
+# Render configuration for the MedSphere API.
 #
-#   1. Push this repo to GitHub.
-#   2. Render Dashboard -> New -> Blueprint -> pick this repo.
-#   3. Set GEMINI_API_KEY on the API service (it is marked sync:false so Render
-#      prompts for it instead of storing it in git).
-#   4. Copy the API's URL, then set PRODUCTION_API_BASE in Frontend/config.js
-#      to that URL and push. (The frontend is static, so the URL is baked in at
-#      build time rather than read from an env var.)
+# NOTE: Blueprints (auto-provisioning from this file) are a paid Render feature.
+# On the free plan, create the service by hand instead — this file then serves as
+# a record of the exact settings to enter:
 #
-# Memory note: the API holds ~157 MB resident against the 512 MB free limit.
-# That budget assumes ONE worker. Raising --workers multiplies memory by the
-# worker count and will OOM; use --threads for concurrency instead.
+#   Dashboard -> New -> Web Service -> connect this repo, then:
+#
+#     Name                medsphere-api          (any unused name)
+#     Language            Python 3
+#     Branch              main
+#     Root Directory      Backend                <- important, not the repo root
+#     Build Command       pip install -r requirements.txt
+#     Start Command       gunicorn app:app --workers 1 --threads 4 --timeout 120 --preload --bind 0.0.0.0:$PORT
+#     Instance Type       Free
+#     Health Check Path   /healthz               (under Advanced)
+#
+#   Environment variables to add:
+#     GEMINI_API_KEY      <your rotated key>     required for AI recommendations
+#     PYTHON_VERSION      3.12.3                 matches the pinned wheels
+#     GEMINI_MODEL_NAME   gemini-2.5-flash       optional, this is the default
+#     ALLOWED_ORIGINS     optional; comma-separated CORS allowlist override.
+#                         Defaults already include https://medsphere707.netlify.app
+#
+# The frontend is hosted on Netlify (see netlify.toml), so no static service is
+# defined here.
+#
+# Memory: the API holds ~225 MB resident against the 512 MB free limit, and that
+# budget assumes ONE worker. Raising --workers multiplies memory per process and
+# will be OOM-killed; use --threads for concurrency instead.
 
 services:
-  # ---------------------------------------------------------------- API ----
   - type: web
     name: medsphere-api
     runtime: python
     plan: free
-    region: oregon
+    region: singapore          # closest free region to India; oregon also works
     rootDir: Backend
     buildCommand: pip install -r requirements.txt
-    # Single worker, four threads. Threads share the FAISS index and dataframe;
-    # additional processes would each load their own copy.
     startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120 --preload --bind 0.0.0.0:$PORT
     healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"
       - key: GEMINI_API_KEY
-        sync: false          # prompted for on deploy; never committed
+        sync: false            # prompted for; never committed
       - key: GEMINI_MODEL_NAME
         value: gemini-2.5-flash
-      # Keep pip from caching wheels into the image layer unnecessarily.
       - key: PIP_DISABLE_PIP_VERSION_CHECK
         value: "1"
-
-  # ----------------------------------------------------------- Frontend ----
-  # A static site: free, no cold starts, CDN-served. Only the API sleeps.
-  - type: web
-    name: medsphere-web
-    runtime: static
-    rootDir: Frontend
-    buildCommand: ""
-    staticPublishPath: .
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
-    routes:
-      # Serve index.html for the bare domain.
-      - type: rewrite
-        source: /
-        destination: /index.html

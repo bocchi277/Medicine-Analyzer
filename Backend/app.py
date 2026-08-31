@@ -15,7 +15,31 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def create_app():
     """Creates and configures the Flask application."""
     app = Flask(__name__)
-    CORS(app)
+
+    # Restrict cross-origin access to the known frontends rather than '*'.
+    #
+    # The API is public and read-only, so a wildcard was not a data-leak risk,
+    # but it did let any site drive our Gemini quota using a visitor's IP as the
+    # rate-limit key. Naming the origins keeps that cost tied to our own pages.
+    #
+    # ALLOWED_ORIGINS overrides this list (comma-separated) so a new domain or
+    # Netlify preview URL needs an env var change, not a redeploy of code.
+    default_origins = [
+        "https://medsphere707.netlify.app",   # production frontend
+        "http://localhost:8899",              # local static server
+        "http://127.0.0.1:8899",
+        "http://localhost:5500",              # VS Code Live Server
+        "http://127.0.0.1:5500",
+    ]
+    configured = os.environ.get("ALLOWED_ORIGINS", "").strip()
+    origins = [o.strip() for o in configured.split(",") if o.strip()] or default_origins
+
+    # Netlify deploy previews live on <hash>--medsphere707.netlify.app.
+    origin_patterns = origins + [r"https://.*--medsphere707\.netlify\.app"]
+
+    CORS(app, resources={r"/api/*": {"origins": origin_patterns},
+                         r"/healthz": {"origins": "*"}})
+    logging.info(f"CORS allowed origins: {origins} (+ Netlify deploy previews)")
 
     try:
         logging.info("--- Initializing Application ---")

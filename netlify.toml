@@ -1,0 +1,44 @@
+# Netlify configuration for the MedSphere frontend.
+#
+# The site is already live at https://medsphere707.netlify.app with the publish
+# directory set to "Frontend" in the dashboard. Declaring it here keeps the
+# setting in version control; the value must stay in sync with the dashboard.
+#
+# There is no build step: the frontend is plain HTML/CSS/JS, so Netlify just
+# uploads the folder. The API URL is therefore baked into Frontend/config.js
+# rather than injected from an environment variable.
+
+[build]
+  publish = "Frontend"
+  # No build command: the frontend is plain HTML/CSS/JS. Deliberately omitted
+  # rather than set to "" so this file cannot override a dashboard setting.
+
+# Security headers. Netlify already sends HSTS; these three are not set by
+# default and cost nothing to add.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Stop browsers guessing a MIME type different from the one we send.
+    X-Content-Type-Options = "nosniff"
+    # Block framing, so the site cannot be embedded for clickjacking.
+    X-Frame-Options = "DENY"
+    # frame-ancestors is the modern equivalent, honoured where X-Frame-Options
+    # is ignored. A fuller CSP is deliberately omitted: every page carries
+    # inline <style> and inline <script>, so any useful script-src/style-src
+    # policy would need 'unsafe-inline' and buy almost nothing.
+    Content-Security-Policy = "frame-ancestors 'none'"
+    # Send only the origin to third parties, never the full path.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # This site needs none of these capabilities.
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=()"
+
+# The dataset is large and immutable between deploys; let the CDN keep it.
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
