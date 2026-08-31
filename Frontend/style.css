@@ -26,8 +26,14 @@ nav .sidebar {
   left: 0;
   transition: width 0.3s ease-in-out;
   overflow: hidden;
-  width: 78px;
-  /* Ensure consistent width on desktop */
+  width: var(--ms-rail-w, 78px);
+  /* One rail width everywhere; the media queries below repeat this rather than
+     scaling it, so content padding based on --ms-rail-w is always correct. */
+  z-index: 50;
+  /* Above page content (which sits at z-index 1) so the rail is always
+     clickable, but below .ms-modal (1000) and the preloader (9999). Without
+     this the rail had no z-index at all and any positioned content painted over
+     it, swallowing clicks on the nav icons. */
 }
 
 nav .sidebar.active {
@@ -158,10 +164,18 @@ nav ul li a {
 
 /* Responsive Design */
 
+/* The collapsed rail keeps ONE width at every breakpoint.
+   It used to be sized in percentages (8% / 10% / 15%), so its real width drifted
+   with the viewport — 82px at 1024, 72px at 900, 77px at 768 — while
+   --ms-rail-w claimed a fixed 78px and every page used that token to pad content
+   clear of it. The result was a rail that visibly changed size and content whose
+   clearance was wrong by a few pixels either way. Only the *expanded* width
+   stays proportional, since that panel does need to scale with the screen. */
+
 /* Tablets & Small Laptops */
 @media screen and (max-width: 1024px) {
   nav .sidebar {
-    width: 8%;
+    width: var(--ms-rail-w, 78px);
   }
 
   nav .sidebar.active {
@@ -172,7 +186,7 @@ nav ul li a {
 /* Mobile Screens */
 @media screen and (max-width: 768px) {
   nav .sidebar {
-    width: 10%;
+    width: var(--ms-rail-w, 78px);
   }
 
   nav .sidebar.active {
@@ -191,7 +205,7 @@ nav ul li a {
 /* Very Small Mobile Screens */
 @media screen and (max-width: 480px) {
   nav .sidebar {
-    width: 15%;
+    width: var(--ms-rail-w, 78px);
   }
 
   nav .sidebar.active {

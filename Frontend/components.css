@@ -21,16 +21,42 @@
 
 /* Clears the fixed sidebar rail and centres content. Mirrors the homepage's
    23% offset so pages line up with each other. */
+/* Page content wrapper.
+   -----------------------------------------------------------------------------
+   Centred in the viewport. This used to carry margin-left: 23% to mirror the
+   homepage hero's `.home-content{left:23%}`, but that is a deliberately
+   off-centre layout for text sitting beside artwork — applied to ordinary
+   content pages it pushed everything 166px right of centre at 1440px.
+
+   The nav rail is position:fixed, so it takes no space in flow. Symmetric inline
+   padding equal to the rail width therefore does two jobs at once: it keeps the
+   content clear of the rail, and it keeps the content optically centred. */
 .ms-shell {
   position: relative;
   z-index: 1;
-  margin-left: var(--ms-content-offset);
-  width: calc(100% - var(--ms-content-offset));
+  width: 100%;
   max-width: var(--ms-content-max);
-  padding: var(--ms-space-6) var(--ms-space-5) var(--ms-space-7);
+  margin-inline: auto;
+  padding-block: var(--ms-space-6) var(--ms-space-7);
+  padding-inline: calc(var(--ms-rail-w) + var(--ms-space-4));
 }
 
-.ms-shell--wide { max-width: none; padding-right: var(--ms-space-6); }
+/* Full-bleed variant: keeps the rail clearance, drops the max-width. */
+.ms-shell--wide { max-width: none; }
+
+/* Neutralise the legacy wrapper offset.
+   -----------------------------------------------------------------------------
+   style.css gives #main-content margin-left/width offsets below 1024px (55px at
+   768, 50px at 480) to clear an earlier, narrower rail. .ms-shell now clears the
+   rail itself, so on pages that use both the offset is counted twice and the
+   content sits right of centre — compare_page was +28px off at 768px. The
+   :has() scope means index.html, which uses #main-content without a shell,
+   keeps its original geometry. */
+#main-content:has(> .ms-shell) {
+  margin-left: 0;
+  width: 100%;
+  padding: 0;
+}
 
 /* Sits the page content above bg.css's .background layer. */
 .ms-layer {
@@ -854,19 +880,14 @@
 
 @media screen and (max-width: 1024px) {
   .ms-shell {
-    margin-left: var(--ms-content-offset);
-    width: calc(100% - var(--ms-content-offset));
-    padding: var(--ms-space-5) var(--ms-space-4) var(--ms-space-6);
+    padding-block: var(--ms-space-5) var(--ms-space-6);
   }
 }
 
 @media screen and (max-width: 768px) {
-  :root { --ms-content-offset: 84px; }
-
   .ms-shell {
-    margin-left: var(--ms-content-offset);
-    width: calc(100% - var(--ms-content-offset));
-    padding: var(--ms-space-4) var(--ms-space-3) var(--ms-space-6);
+    padding-block: var(--ms-space-4) var(--ms-space-6);
+    padding-inline: calc(var(--ms-rail-w) + var(--ms-space-3));
   }
 
   .ms-panel { padding: var(--ms-space-3); }
@@ -877,9 +898,11 @@
 }
 
 @media screen and (max-width: 480px) {
-  :root { --ms-content-offset: 70px; }
+  .ms-shell {
+    padding-block: var(--ms-space-3) var(--ms-space-5);
+    padding-inline: calc(var(--ms-rail-w) + var(--ms-space-2));
+  }
 
-  .ms-shell { padding: var(--ms-space-3) var(--ms-space-2) var(--ms-space-5); }
   .ms-title h2, .ms-title .ms-title__line { font-size: 1.4rem; }
   .ms-meter__value { font-size: 1.15rem; }
   .ms-ring { --ms-ring-size: 6rem; }

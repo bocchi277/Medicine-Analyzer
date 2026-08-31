@@ -112,7 +112,6 @@
   /* ---- Layout --------------------------------------------------------- */
   /* The homepage offsets its content by 23% to clear the 78px rail. */
   --ms-rail-w: 78px;
-  --ms-content-offset: 23%;
   --ms-content-max: 1180px;
 }
 
@@ -124,6 +123,51 @@ body {
   color: var(--ms-text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Decorative layers must never intercept clicks.
+   -----------------------------------------------------------------------------
+   bg.css's floating-bubble layer is `position:absolute; width:100%; height:100%`
+   with no z-index and no pointer-events rule, so it forms a full-page sheet over
+   whatever sits below it in the stacking order — including the fixed nav rail.
+   The nav icons on the homepage could not be clicked at all: the click landed on
+   .circles, so nothing navigated and only the :hover style fired (the item lifts
+   4px and turns white), which looks like the navbar resizing.
+
+   These four elements are ornament only and contain nothing interactive, so
+   opting them out of hit-testing is safe and changes nothing visually. */
+.area,
+.circles,
+.circles li,
+.layer-blur,
+.background {
+  pointer-events: none;
+}
+
+/* The homepage hero box is position:absolute with height:100vh, so it extends
+   well past its own text and covered the feature cards underneath — those three
+   links could not be clicked. Letting clicks through the box while keeping its
+   actual children interactive fixes that without moving anything on screen.
+   (These are index.html's own generic class names; the rules here are
+   hit-testing only and deliberately change nothing visual.) */
+.home-content { pointer-events: none; }
+.home-content > * { pointer-events: auto; }
+
+/* The `hidden` attribute must actually hide.
+   -----------------------------------------------------------------------------
+   `hidden` is implemented in the browser's default stylesheet as
+   [hidden]{display:none}, and *any* author rule that sets `display` beats it —
+   author styles win over the UA sheet regardless of specificity. So a component
+   like .ms-loading{display:flex} silently defeated `<div class="ms-loading"
+   hidden>`, leaving the loading spinner on screen permanently on the drug
+   details page even though no search had been made.
+
+   !important is deliberate here: `hidden` is a semantic "not rendered" signal
+   and should never lose to a layout rule. Anything that needs to show such an
+   element removes the attribute (element.hidden = false) rather than
+   overriding it in CSS. */
+[hidden] {
+  display: none !important;
 }
 
 /* ============================================================================
