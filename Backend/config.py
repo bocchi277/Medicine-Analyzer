@@ -13,7 +13,11 @@ class Config:
     # Current generally-available price/performance model. Override via env if
     # you want a different one; the old 'gemini-1.5-pro-latest' is retired.
     GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
-    SBERT_MODEL_NAME = os.getenv('SBERT_MODEL_NAME', 'paraphrase-MiniLM-L3-v2')
+    # Used only by build_index.py (offline). all-MiniLM-L6-v2 reads 256 tokens
+    # versus 128 for the old paraphrase-MiniLM-L3-v2, and raised the ATC
+    # top-1 score from 36.8% to about 52% (see evaluate.py). Both give
+    # 384-dimensional vectors, so the index and server memory are unchanged.
+    SBERT_MODEL_NAME = os.getenv('SBERT_MODEL_NAME', 'all-MiniLM-L6-v2')
     FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "index.faiss")
     ID_MAP_PATH = os.getenv("ID_MAP_PATH", "id_map.pkl")
     DATA_PATH = os.getenv("DATA_PATH", "Drug_Data.csv")
