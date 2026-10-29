@@ -215,18 +215,20 @@
           </button>
         </form>
 
-        <div class="suggestions-dropdown" id="suggestions-dropdown">
-          <!-- Suggestions will be populated here -->
-        </div>
-
         <div class="popular-medicines">
           <span>Popular: </span>
           <span class="popular-item">Ibuprofen</span>
           <span class="popular-item">Paracetamol</span>
-          <span class="popular-item">Amoxicillin</span>
+          <span class="popular-item">Metformin</span>
           <span class="popular-item">Omeprazole</span>
           <span class="popular-item">Atorvastatin</span>
+          <span class="popular-item">Dolo 650</span>
         </div>
+
+        <label class="ms-approved-toggle" style="display:flex; gap:0.5rem; align-items:center; margin-top: var(--ms-space-3); color: var(--ms-text-muted); font-size: 0.85rem; cursor:pointer;">
+          <input type="checkbox" id="include-unapproved">
+          Also show experimental and withdrawn drugs
+        </label>
       </div>
     </section>
 
@@ -288,6 +290,8 @@
 
     <section class="alternatives-section" id="alternatives-section" style="margin-bottom: var(--ms-space-5);">
       <h2 class="ms-heading" style="margin-bottom: var(--ms-space-4);">Alternative Medications</h2>
+
+      <p class="ms-disclaimer" id="disclaimer"><i class="bx bx-error" aria-hidden="true"></i><span id="disclaimer-text"></span></p>
 
       <div class="best-alternative ms-panel ms-panel--accent" id="best-alternative" style="margin-bottom: var(--ms-space-5);">
         <div class="ms-panel__inner">

@@ -262,13 +262,13 @@
                 <div class="ms-panel ms-animate">
                     <div class="icon-tile"><span class="icon-tile__inner"><i class="bx bx-bot" aria-hidden="true"></i></span></div>
                     <h3 class="card-title">Gemini API</h3>
-                    <p class="card-desc">Used to intelligently select the best alternative from the top 10 similar drugs.</p>
+                    <p class="card-desc">Reads the 10 nearest approved drugs and picks the closest substitute, using only the DrugBank data it is given.</p>
                 </div>
 
                 <div class="ms-panel ms-animate">
                     <div class="icon-tile"><span class="icon-tile__inner"><i class="bx bx-dna" aria-hidden="true"></i></span></div>
-                    <h3 class="card-title">SBERT (PubMedBERT-MS-MARCO)</h3>
-                    <p class="card-desc">Generates top 10 semantically similar drugs using biomedical embeddings.</p>
+                    <h3 class="card-title">Sentence embeddings (all-MiniLM-L6-v2)</h3>
+                    <p class="card-desc">Turns each drug's categories, targets, indication and mechanism into a 384-number vector, once, offline. Similar drugs have nearby vectors.</p>
                 </div>
 
                 <div class="ms-panel ms-animate">
@@ -286,8 +286,8 @@
 
                 <div class="ms-panel ms-animate">
                     <div class="icon-tile"><span class="icon-tile__inner"><i class="bx bx-test-tube" aria-hidden="true"></i></span></div>
-                    <h3 class="card-title">NIH API</h3>
-                    <p class="card-desc">Fetches drug data and generates 2D chemical structures from SMILES.</p>
+                    <h3 class="card-title">NIH CACTUS</h3>
+                    <p class="card-desc">Draws 2D chemical structures from each drug's SMILES string.</p>
                 </div>
 
                 <div class="ms-panel ms-animate">

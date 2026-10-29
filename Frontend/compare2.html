@@ -160,7 +160,7 @@
                         <div class="similarity-inner">
                             <div class="similarity-copy">
                                 <h2>Drug Similarity Analysis</h2>
-                                <p>Based on molecular structure and pharmacological properties.</p>
+                                <p>Based on how close their DrugBank descriptions are (category, targets, indication and mechanism text), not on chemical structure.</p>
                                 <div class="ms-meter" id="similarityMeter" style="--ms-meter-value:0%;">
                                     <div class="ms-meter__head">
                                         <span class="ms-meter__label">Similarity</span>
@@ -211,7 +211,7 @@
                 <div class="properties-slider">
                     <div class="ms-tabs" role="tablist" id="propertyTabs">
                         <button type="button" class="ms-tab is-active" data-property="mechanism" role="tab" aria-selected="true">Mechanism</button>
-                        <button type="button" class="ms-tab" data-property="half_life" role="tab" aria-selected="false">Half Life</button>
+                        <button type="button" class="ms-tab" data-property="targets" role="tab" aria-selected="false">Targets</button>
                         <button type="button" class="ms-tab" data-property="protein_binding" role="tab" aria-selected="false">Protein Binding</button>
                         <button type="button" class="ms-tab" data-property="synonyms" role="tab" aria-selected="false">Synonyms</button>
                         <button type="button" class="ms-tab" data-property="smiles" role="tab" aria-selected="false">SMILES</button>
@@ -322,6 +322,15 @@
                         showError(error && error.message
                             ? error.message
                             : 'An error occurred while fetching drug data.');
+                        var missing = error && error.payload && error.payload.missing;
+                        if (missing && errorEl) {
+                            var old = errorEl.querySelector('.ms-didyoumean');
+                            if (old) old.remove();
+                            window.MedSphereConfig.renderSuggestions(errorEl, error, function (name) {
+                                params.set(missing === 'name1' ? 'drug1' : 'drug2', name);
+                                window.location.search = params.toString();
+                            });
+                        }
                     });
             });
 
@@ -370,7 +379,7 @@
 
             var PROPERTY_LABELS = {
                 mechanism: 'Mechanism of Action',
-                half_life: 'Half Life',
+                targets: 'Molecular targets (shared ones marked)',
                 protein_binding: 'Protein Binding',
                 synonyms: 'Synonyms',
                 smiles: 'SMILES Notation'
@@ -397,8 +406,74 @@
                 container.appendChild(item);
             }
 
+            // DrugBank's mechanism text ends with "TARGET ACTIONS ORGANISM" and one
+            // target per line, each prefixed with an A/U flag (known/unknown).
+            function splitMechanism(value) {
+                if (!value || value === 'Not Available') return { prose: '', targets: [] };
+                var parts = String(value).split(/\r?\n?TARGET ACTIONS ORGANISM\r?\n?/);
+                var targets = (parts[1] || '').split(/\r?\n/).map(function (l) { return l.trim(); })
+                    .filter(function (l) { return l.length > 1 && (l[0] === 'A' || l[0] === 'U'); })
+                    .map(function (l) { return l.slice(1).trim(); });
+                return { prose: parts[0].trim(), targets: targets };
+            }
+
+            // "Prostaglandin G/H synthase 2 inhibitor Humans" -> the protein name.
+            function targetKey(line) {
+                return line.replace(/\s+(inhibitor|antagonist|agonist|binder|modulator|inducer|activator|substrate|blocker|other|ligand|potentiator|cofactor|negative modulator|positive allosteric modulator|partial agonist)\b.*$/i, '')
+                           .trim().toLowerCase();
+            }
+
+            function renderTargets(containerId, mine, other) {
+                var container = document.getElementById(containerId);
+                container.innerHTML = '';
+                var item = document.createElement('div');
+                item.className = 'ms-kv__item';
+                var labelEl = document.createElement('span');
+                labelEl.className = 'ms-kv__label';
+                labelEl.textContent = PROPERTY_LABELS.targets;
+                item.appendChild(labelEl);
+                if (!mine.length) {
+                    var none = document.createElement('p');
+                    none.className = 'ms-kv__value';
+                    none.style.opacity = '0.55';
+                    none.textContent = 'Not Available';
+                    item.appendChild(none);
+                } else {
+                    var otherKeys = other.map(targetKey);
+                    var list = document.createElement('ul');
+                    list.className = 'ms-targets ms-kv__value';
+                    mine.forEach(function (line) {
+                        var li = document.createElement('li');
+                        var shared = otherKeys.indexOf(targetKey(line)) !== -1;
+                        li.textContent = line;
+                        if (shared) {
+                            var tag = document.createElement('span');
+                            tag.className = 'ms-badge ms-badge--accent';
+                            tag.style.marginLeft = '0.4rem';
+                            tag.textContent = 'shared';
+                            li.appendChild(tag);
+                        }
+                        list.appendChild(li);
+                    });
+                    item.appendChild(list);
+                }
+                container.appendChild(item);
+            }
+
             function updatePropertyDetails(property, data) {
                 var label = PROPERTY_LABELS[property] || property;
+                var m1 = splitMechanism(data.drug1.mechanism);
+                var m2 = splitMechanism(data.drug2.mechanism);
+                if (property === 'targets') {
+                    renderTargets('drug1Details', m1.targets, m2.targets);
+                    renderTargets('drug2Details', m2.targets, m1.targets);
+                    return;
+                }
+                if (property === 'mechanism') {
+                    renderDetails('drug1Details', label, m1.prose);
+                    renderDetails('drug2Details', label, m2.prose);
+                    return;
+                }
                 renderDetails('drug1Details', label, data.drug1[property]);
                 renderDetails('drug2Details', label, data.drug2[property]);
             }
@@ -406,7 +481,7 @@
             function setupPropertyTabs(data) {
                 var tabs = document.querySelectorAll('#propertyTabs .ms-tab');
                 var slider = document.getElementById('propertySlider');
-                var order = ['mechanism', 'half_life', 'protein_binding', 'synonyms', 'smiles'];
+                var order = ['mechanism', 'targets', 'protein_binding', 'synonyms', 'smiles'];
 
                 tabs.forEach(function (tab, index) {
                     tab.addEventListener('click', function () {
@@ -439,6 +514,8 @@
                 }
 
                 var d = drugComparisonData;
+                d.drug1.targets_text = splitMechanism(d.drug1.mechanism).targets.join('; ');
+                d.drug2.targets_text = splitMechanism(d.drug2.mechanism).targets.join('; ');
                 var report = 'Drug Comparison Report\n';
                 report += 'Generated on: ' + new Date().toLocaleString() + '\n\n';
 
@@ -457,7 +534,7 @@
                 report += '=== DETAILED PROPERTIES ===\n';
                 var properties = [
                     { label: 'Mechanism of Action', key: 'mechanism' },
-                    { label: 'Half Life', key: 'half_life' },
+                    { label: 'Molecular targets', key: 'targets_text' },
                     { label: 'Protein Binding', key: 'protein_binding' },
                     { label: 'Synonyms', key: 'synonyms' },
                     { label: 'SMILES Notation', key: 'smiles' }

@@ -25,7 +25,26 @@
     { key: 'about',   href: 'about.html',        icon: 'bxs-contact',    label: 'About' }
   ];
 
-  var CIRCLE_COUNT = 10;
+  /* Faint line drawings of two real molecules, ibuprofen and paracetamol, in
+     the skeletal style the structure viewer uses. They replace the stock
+     "rising squares" animation that was copied from a CSS template. */
+  var MOLECULES =
+    '<svg class="ms-mol ms-mol--a" viewBox="-110 -160 230 330" aria-hidden="true" focusable="false">' +
+    '<path d="M0.0 -40.0L34.6 -20.0M34.6 -20.0L34.6 20.0M34.6 20.0L0.0 40.0M0.0 40.0L-34.6 20.0M-34.6 20.0L-34.6 -20.0M-34.6 -20.0L0.0 -40.0M3.2 -29.3L23.8 -17.5M23.8 17.5L3.2 29.3M-27.0 11.9L-27.0 -11.9M0.0 -40.0L0.0 -80.0M0.0 -80.0L-34.6 -100.0M-34.6 -100.0L-34.6 -140.0M-34.6 -100.0L-69.3 -80.0M0.0 40.0L0.0 80.0M0.0 80.0L34.6 100.0M0.0 80.0L-34.6 100.0M34.6 100.0L34.6 134.0M28.6 100.0L28.6 134.0M34.6 100.0L63.3 83.5"/>' +
+    '<text x="27.6" y="158">O</text><text x="67.3" y="86">OH</text></svg>' +
+    '<svg class="ms-mol ms-mol--b" viewBox="-60 -110 160 270" aria-hidden="true" focusable="false">' +
+    '<path d="M0.0 -40.0L34.6 -20.0M34.6 -20.0L34.6 20.0M34.6 20.0L0.0 40.0M0.0 40.0L-34.6 20.0M-34.6 20.0L-34.6 -20.0M-34.6 -20.0L0.0 -40.0M3.2 -29.3L23.8 -17.5M23.8 17.5L3.2 29.3M-27.0 11.9L-27.0 -11.9M0.0 -40.0L0.0 -70.0M0.0 40.0L0.0 68.0M8.0 84.0L34.6 100.0M34.6 100.0L34.6 134.0M28.6 100.0L28.6 134.0M34.6 100.0L69.3 80.0"/>' +
+    '<text x="-16" y="-76">HO</text><text x="-8" y="84">N</text><text x="-8" y="104">H</text>' +
+    '<text x="27.6" y="152">O</text></svg>';
+
+  function addMolecules(background) {
+    if (!background || background.querySelector('.ms-molecules')) return;
+    var layer = document.createElement('div');
+    layer.className = 'ms-molecules';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML = MOLECULES;
+    background.appendChild(layer);
+  }
 
   function buildBackground() {
     var background = document.createElement('div');
@@ -38,17 +57,10 @@
     var area = document.createElement('div');
     area.className = 'area';
 
-    var circles = document.createElement('ul');
-    circles.className = 'circles';
-    for (var i = 0; i < CIRCLE_COUNT; i++) {
-      circles.appendChild(document.createElement('li'));
-    }
-
     /* The homepage's soft white glow, so content pages get the same depth. */
     var glow = document.createElement('div');
     glow.className = 'layer-blur';
 
-    area.appendChild(circles);
     background.appendChild(area);
     background.appendChild(glow);
     return background;
@@ -188,6 +200,7 @@
     if (!document.querySelector('.background')) {
       document.body.insertBefore(buildBackground(), document.body.firstChild);
     }
+    addMolecules(document.querySelector('.background'));
 
     /* The sidebar is position:fixed, so where it sits in the DOM has no visual
        effect; putting it first keeps it early in the tab order. */

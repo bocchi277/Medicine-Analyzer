@@ -175,6 +175,10 @@
 
             [input1, input2].forEach(function (el) {
                 el.addEventListener('input', clearError);
+                window.MedSphereConfig.attachAutocomplete(el, function () {
+                    if (input1.value.trim() && input2.value.trim()) button.click();
+                    else (el === input1 ? input2 : input1).focus();
+                });
             });
 
             button.addEventListener('click', function () {

@@ -80,89 +80,283 @@
     return parts.length ? url + '?' + parts.join('&') : url;
   }
 
+  /* ------------------------------------------------------------------------
+     Cold starts. The free Render instance sleeps after 15 minutes idle and
+     takes up to a minute or two to wake. While it wakes, requests fail at the
+     network layer or come back as 502/503 from Render's edge. Instead of
+     showing an error, retry for up to WAKE_LIMIT_MS and tell the user why.
+     ------------------------------------------------------------------------ */
+  var WAKE_LIMIT_MS = 150000;
+  var banner = null;
+  var bannerTimer = null;
+
+  function showWakeBanner(startedAt) {
+    if (!global.document || !document.body) return;
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'ms-wake';
+      banner.setAttribute('role', 'status');
+      banner.setAttribute('aria-live', 'polite');
+      document.body.appendChild(banner);
+    }
+    function render() {
+      var seconds = Math.round((Date.now() - startedAt) / 1000);
+      banner.textContent = 'Waking the server (free hosting sleeps when idle). ' +
+        'This can take up to a minute... ' + seconds + 's';
+    }
+    render();
+    banner.hidden = false;
+    if (!bannerTimer) bannerTimer = global.setInterval(render, 1000);
+  }
+
+  function hideWakeBanner() {
+    if (bannerTimer) { global.clearInterval(bannerTimer); bannerTimer = null; }
+    if (banner) banner.hidden = true;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { global.setTimeout(resolve, ms); });
+  }
+
+  /* A reply that did not come from our API: no JSON body, status from the
+     edge while the instance boots. */
+  function isWaking(response, payload) {
+    return !payload && (response.status === 502 || response.status === 503 ||
+                        response.status === 504);
+  }
+
+  function apiError(message, status, payload) {
+    var error = new Error(message);
+    error.status = status || 0;
+    error.payload = payload || null;
+    return error;
+  }
+
   /**
    * Fetch JSON from the API, surfacing the backend's own error message.
    *
-   * The API replies with {"error": "..."} and a 4xx/5xx status for failures,
-   * so read the body before deciding what to throw.
+   * The API replies with {"error": "...", ...} and a 4xx/5xx status for
+   * failures, so read the body before deciding what to throw. The thrown
+   * Error carries .status and .payload, so pages can show the "did you mean"
+   * suggestions that come with a 404.
    */
   async function apiFetch(path, params, options) {
     var url = apiUrl(path, params);
-    var response;
+    var startedAt = Date.now();
+    var attempt = 0;
 
     try {
-      response = await fetch(url, options);
-    } catch (networkError) {
-      // Two very different causes produce the same browser error, so name both.
-      if (usingDefaultProdUrl) {
-        throw new Error(
-          'Could not reach the API at ' + base + '. This is still the ' +
-          'placeholder URL — set PRODUCTION_API_BASE in Frontend/config.js to ' +
-          'your own API address and redeploy.'
-        );
-      }
-      throw new Error(
-        'Could not reach the server. It may be starting up — free instances ' +
-        'sleep after 15 minutes of inactivity and take about a minute to wake. ' +
-        'Try again shortly.'
-      );
-    }
+      while (true) {
+        var response = null;
+        var payload = null;
+        try {
+          response = await fetch(url, options);
+          try { payload = await response.json(); } catch (parseError) { payload = null; }
+        } catch (networkError) {
+          response = null;
+        }
 
-    var payload = null;
-    try {
-      payload = await response.json();
-    } catch (parseError) {
-      payload = null;
-    }
+        var waking = response === null || isWaking(response, payload);
+        if (waking && !usingDefaultProdUrl && !isLocal &&
+            Date.now() - startedAt < WAKE_LIMIT_MS) {
+          attempt += 1;
+          if (attempt >= 2) showWakeBanner(startedAt);
+          await sleep(Math.min(2000 * attempt, 8000));
+          continue;
+        }
 
-    if (!response.ok) {
-      // A wrong API URL does not always fail at the network layer. Unclaimed
-      // *.onrender.com hostnames answer with a 404, which would otherwise
-      // surface as a bare "Request failed with status 404" and send you looking
-      // for a bug in the backend that isn't there.
-      if (usingDefaultProdUrl) {
-        throw new Error(
-          'The API URL is still the placeholder (' + base + '), which returned ' +
-          response.status + '. Set PRODUCTION_API_BASE in Frontend/config.js to ' +
-          'your own Render URL and redeploy.'
-        );
-      }
+        if (response === null) {
+          if (usingDefaultProdUrl) {
+            throw apiError(
+              'Could not reach the API at ' + base + '. This is still the ' +
+              'placeholder URL. Set PRODUCTION_API_BASE in Frontend/config.js to ' +
+              'your own API address and redeploy.'
+            );
+          }
+          throw apiError(isLocal
+            ? 'Could not reach the local API at ' + base + '. Is the backend running?'
+            : 'Could not reach the server. Please try again in a minute.');
+        }
 
-      // Our API always sends {"error": "..."} with a failure status, so a JSON
-      // error body means we really did reach it.
-      if (payload && payload.error) {
-        throw new Error(payload.error);
+        if (!response.ok) {
+          // A wrong API URL does not always fail at the network layer.
+          // Unclaimed *.onrender.com hostnames answer with a plain 404.
+          if (usingDefaultProdUrl) {
+            throw apiError(
+              'The API URL is still the placeholder (' + base + '), which returned ' +
+              response.status + '. Set PRODUCTION_API_BASE in Frontend/config.js to ' +
+              'your own Render URL and redeploy.', response.status
+            );
+          }
+          // Our API always sends {"error": "..."} with a failure status.
+          if (payload && payload.error) {
+            throw apiError(payload.error, response.status, payload);
+          }
+          if (response.status === 404) {
+            throw apiError('No server is responding at ' + base + '. The API may not be ' +
+                           'deployed yet, or its URL may have changed.', 404);
+          }
+          throw apiError('Request failed with status ' + response.status, response.status);
+        }
+        if (payload && payload.error) {
+          throw apiError(payload.error, response.status, payload);
+        }
+        return payload;
       }
-
-      // No JSON body: the reply came from something in front of the API rather
-      // than the API itself. Render's edge returns a plain 404 with
-      // "x-render-routing: no-server" when no service is running at the URL,
-      // and 502/503 while one is booting or crash-looping.
-      if (response.status === 404) {
-        throw new Error(
-          'No server is responding at ' + base + '. The API may not be deployed ' +
-          'yet, or its URL may have changed.'
-        );
-      }
-      if (response.status === 502 || response.status === 503) {
-        throw new Error(
-          'The server is starting up or unavailable. Free instances take about a ' +
-          'minute to wake — try again shortly.'
-        );
-      }
-      throw new Error('Request failed with status ' + response.status);
+    } finally {
+      hideWakeBanner();
     }
-    if (payload && payload.error) {
-      throw new Error(payload.error);
-    }
-    return payload;
   }
+
+  /* Start waking the server as soon as any page opens, so it is often awake
+     by the time the user has typed a drug name. */
+  if (!isLocal && !usingDefaultProdUrl && global.fetch) {
+    try {
+      fetch(apiUrl('/healthz'), { mode: 'cors', cache: 'no-store' }).catch(function () {});
+    } catch (ignored) { /* best effort */ }
+  }
+
+  /**
+   * Render "did you mean" buttons for a 404 that came with suggestions.
+   * onPick(name) is called with the drug name the user chose.
+   */
+  function renderSuggestions(container, error, onPick) {
+    var list = error && error.payload && error.payload.suggestions;
+    if (!container || !list || !list.length) return false;
+    var wrap = document.createElement('div');
+    wrap.className = 'ms-didyoumean';
+    var label = document.createElement('span');
+    label.className = 'ms-didyoumean__label';
+    label.textContent = 'Did you mean:';
+    wrap.appendChild(label);
+    list.forEach(function (item) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ms-chip ms-didyoumean__item';
+      button.textContent = item.label.toLowerCase() === item.name.toLowerCase()
+        ? item.name
+        : item.label + ' \u2192 ' + item.name;
+      button.addEventListener('click', function () { onPick(item.name); });
+      wrap.appendChild(button);
+    });
+    container.appendChild(wrap);
+    return true;
+  }
+
+  /**
+   * Attach an autocomplete list to a text input, fed by /api/suggest.
+   * onPick(name) runs when a suggestion is chosen (click or Enter).
+   */
+  function attachAutocomplete(input, onPick) {
+    if (!input || input.dataset.msAutocomplete) return;
+    input.dataset.msAutocomplete = '1';
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('aria-autocomplete', 'list');
+
+    var host = input.parentNode;
+    if (global.getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    var list = document.createElement('ul');
+    list.className = 'ms-ac';
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+    host.appendChild(list);
+
+    var timer = null;
+    var items = [];
+    var active = -1;
+    var latest = 0;
+
+    function close() { list.hidden = true; active = -1; }
+
+    function highlight(index) {
+      active = index;
+      Array.prototype.forEach.call(list.children, function (li, i) {
+        li.classList.toggle('is-active', i === index);
+        li.setAttribute('aria-selected', String(i === index));
+      });
+    }
+
+    function choose(item) {
+      input.value = item.name;
+      close();
+      if (onPick) onPick(item.name);
+    }
+
+    function render(results) {
+      items = results;
+      list.innerHTML = '';
+      results.forEach(function (item) {
+        var li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        var main = document.createElement('span');
+        main.className = 'ms-ac__name';
+        main.textContent = item.label;
+        li.appendChild(main);
+        var meta = document.createElement('span');
+        meta.className = 'ms-ac__meta';
+        meta.textContent = item.label.toLowerCase() === item.name.toLowerCase()
+          ? (item.approved ? 'approved' : 'not approved')
+          : item.kind + ' of ' + item.name;
+        li.appendChild(meta);
+        li.addEventListener('mousedown', function (event) {
+          event.preventDefault();   // keep focus; blur would close first
+          choose(item);
+        });
+        list.appendChild(li);
+      });
+      list.hidden = results.length === 0;
+      active = -1;
+    }
+
+    input.addEventListener('input', function () {
+      var query = input.value.trim();
+      global.clearTimeout(timer);
+      if (query.length < 2) { close(); return; }
+      timer = global.setTimeout(async function () {
+        var ticket = ++latest;
+        try {
+          var data = await apiFetch('/api/suggest', { q: query });
+          if (ticket === latest && document.activeElement === input) {
+            render((data && data.suggestions) || []);
+          }
+        } catch (ignored) { close(); }
+      }, 150);
+    });
+
+    input.addEventListener('keydown', function (event) {
+      if (list.hidden || !items.length) return;
+      if (event.key === 'ArrowDown') {
+        event.preventDefault(); highlight((active + 1) % items.length);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault(); highlight((active - 1 + items.length) % items.length);
+      } else if (event.key === 'Enter' && active >= 0) {
+        event.preventDefault(); event.stopImmediatePropagation(); choose(items[active]);
+      } else if (event.key === 'Escape') {
+        close();
+      }
+    });
+    input.addEventListener('blur', function () { global.setTimeout(close, 100); });
+  }
+
+  /** Escape text for safe use inside innerHTML templates. */
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  var DISCLAIMER = 'For information only. Similar drugs are not automatically safe ' +
+    'substitutes. Ask a doctor or pharmacist before changing any medicine.';
 
   global.MedSphereConfig = {
     apiBase: base,
     isLocal: isLocal,
     apiUrl: apiUrl,
     apiFetch: apiFetch,
+    renderSuggestions: renderSuggestions,
+    attachAutocomplete: attachAutocomplete,
+    escapeHtml: escapeHtml,
+    disclaimer: DISCLAIMER,
     usingDefaultProdUrl: usingDefaultProdUrl
   };
 })(window);

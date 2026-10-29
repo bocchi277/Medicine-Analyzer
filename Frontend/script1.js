@@ -20,26 +20,16 @@ const modalClose = document.getElementById('modalClose');
 const modalTitle = document.getElementById('modalTitle');
 const drugDetails = document.getElementById('drugDetails');
 const meterValue = document.getElementById('meterValue');
-const suggestionsDropdown = document.getElementById('suggestions-dropdown');
 
-// Medicine database (sample data - in production would come from API)
-const medicineDatabase = [
-    { name: "Ibuprofen", type: "NSAID" },
-    { name: "Paracetamol", type: "Analgesic" },
-    { name: "Amoxicillin", type: "Antibiotic" },
-    { name: "Omeprazole", type: "PPI" },
-    { name: "Atorvastatin", type: "Statin" },
-    { name: "Metformin", type: "Antidiabetic" },
-    { name: "Aspirin", type: "NSAID" },
-    { name: "Lisinopril", type: "ACE Inhibitor" },
-    { name: "Levothyroxine", type: "Thyroid Hormone" },
-    { name: "Simvastatin", type: "Statin" }
-];
+const esc = (value) => window.MedSphereConfig.escapeHtml(value);
+const isMissing = (value) =>
+    value === undefined || value === null || value === '' || value === 'Not Available';
 
 // State management
 let currentView = 'table'; // 'table' or 'graph'
 let drugsData = [];
 let currentDrugName = '';
+let lastResult = null;
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
@@ -64,53 +54,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Setup search page functionality
 function setupSearchPage() {
-    // Initialize search suggestions
     const searchInput = document.getElementById('medicine-search');
     const popularItems = document.querySelectorAll('.popular-item');
 
-    // Show suggestions when input is focused
-    searchInput.addEventListener('focus', () => {
-        showSuggestions(medicineDatabase.slice(0, 6));
+    // Suggestions come from the API's full name index (names, synonyms and
+    // brands for 17k drugs), replacing a hardcoded list of ten.
+    window.MedSphereConfig.attachAutocomplete(searchInput, (name) => {
+        searchInput.value = name;
+        searchForm.requestSubmit ? searchForm.requestSubmit() : searchForm.dispatchEvent(new Event('submit'));
     });
 
-    // Hide suggestions when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !suggestionsDropdown.contains(e.target)) {
-            suggestionsDropdown.style.display = 'none';
-        }
-    });
-
-    // Handle input changes
-    searchInput.addEventListener('input', (e) => {
-        const value = e.target.value.toLowerCase();
-        if (value.length > 0) {
-            const filtered = medicineDatabase.filter(med => 
-                med.name.toLowerCase().includes(value)
-            ).slice(0, 6);
-            showSuggestions(filtered);
-        } else {
-            showSuggestions(medicineDatabase.slice(0, 6));
-        }
-    });
-
-    // Handle suggestion selection
-    suggestionsDropdown.addEventListener('click', (e) => {
-        const suggestionItem = e.target.closest('.suggestion-item');
-        if (suggestionItem) {
-            const suggestionName = suggestionItem.querySelector('.suggestion-name').textContent;
-            searchInput.value = suggestionName;
-            suggestionsDropdown.style.display = 'none';
-            searchForm.dispatchEvent(new Event('submit'));
-        }
-    });
-
-    // Handle popular item clicks
     popularItems.forEach(item => {
         item.addEventListener('click', () => {
             searchInput.value = item.textContent;
             searchForm.dispatchEvent(new Event('submit'));
         });
     });
+
+    if (viewDetailsBtn) {
+        viewDetailsBtn.addEventListener('click', () => {
+            const params = new URLSearchParams({ drug: currentDrugName });
+            if (!approvedOnly()) params.set('all', '1');
+            window.location.href = 'secondpage.html?' + params.toString();
+        });
+    }
 
     // Tab functionality
     const tabs = document.querySelectorAll('.tab');
@@ -145,7 +112,8 @@ function setupSearchPage() {
         
         try {
             const data = await fetchDrugData(searchTerm);
-            currentDrugName = searchTerm;
+            lastResult = data;
+            currentDrugName = (data.target && data.target.name) || searchTerm;
             updateDrugInfo(data);
             
             loadingElement.style.display = 'none';
@@ -159,7 +127,13 @@ function setupSearchPage() {
             // server asleep) rather than a generic failure string.
             showMessage(error && error.message
                 ? error.message
-                : 'Failed to fetch drug data. Please try again.', 'error');
+                : 'Failed to fetch drug data. Please try again.',
+                error && error.status === 404 ? 'warning' : 'error');
+            window.MedSphereConfig.renderSuggestions(
+                document.getElementById('page-message'), error, (name) => {
+                    medicineSearch.value = name;
+                    searchForm.dispatchEvent(new Event('submit'));
+                });
         }
     });
 
@@ -173,7 +147,7 @@ function setupSearchPage() {
             
             try {
                 downloadBtn.textContent = 'Downloading...';
-                await downloadDrugData(currentDrugName);
+                await downloadDrugData(currentDrugName, lastResult);
                 downloadBtn.textContent = 'Download Data';
             } catch (error) {
                 console.error('Error downloading drug data:', error);
@@ -184,37 +158,26 @@ function setupSearchPage() {
     }
 }
 
-// Show search suggestions
-function showSuggestions(suggestions) {
-    if (suggestions.length > 0) {
-        suggestionsDropdown.innerHTML = suggestions.map(med => `
-            <div class="suggestion-item">
-                <svg class="suggestion-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <span class="suggestion-name">${med.name}</span>
-                <span class="suggestion-type">${med.type}</span>
-            </div>
-        `).join('');
-        suggestionsDropdown.style.display = 'block';
-    } else {
-        suggestionsDropdown.innerHTML = '<div class="suggestion-item">No results found</div>';
-        suggestionsDropdown.style.display = 'block';
-    }
+// Fetch drug data from API
+function approvedOnly() {
+    const box = document.getElementById('include-unapproved');
+    return !(box && box.checked);
 }
 
-
-
-
-// Fetch drug data from API
-async function fetchDrugData(drugName) {
-    return await window.MedSphereConfig.apiFetch('/api/get_alternative', { name: drugName });
+// withLlm=false is used by the details page: it only needs the list, so it
+// should not spend another Gemini call.
+async function fetchDrugData(drugName, withLlm = true, onlyApproved = approvedOnly()) {
+    return await window.MedSphereConfig.apiFetch('/api/get_alternative', {
+        name: drugName,
+        llm: withLlm ? '1' : '0',
+        approved_only: onlyApproved ? '1' : '0'
+    });
 }
 
 // Download drug data
-async function downloadDrugData(drugName) {
-    const data = await fetchDrugData(drugName);
+async function downloadDrugData(drugName, data) {
+    // The result is already on screen; fetching again would cost a request.
+    if (!data) data = await fetchDrugData(drugName);
     
     // Create a downloadable JSON file
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -231,79 +194,89 @@ async function downloadDrugData(drugName) {
 // Function to update UI with drug data on search page
 function updateDrugInfo(data) {
     const targetDrug = data.target;
-    
-    // Update drug info section
+    const text = (value, fallback) => (isMissing(value) ? fallback : value);
+
     document.getElementById('drug-name').textContent = targetDrug.name;
     document.getElementById('drug-id').textContent = targetDrug.drug_id;
-    document.getElementById('drug-synonyms').textContent = targetDrug.synonyms.split('\n').join(', ');
-    document.getElementById('drug-background').textContent = targetDrug.description || 'No description available';
-    document.getElementById('drug-indication').textContent = targetDrug.indication || 'No indication information available';
-    document.getElementById('drug-category').textContent = targetDrug.generic_name || 'No category information available';
-    document.getElementById('drug-mechanism').textContent = targetDrug.mechanism || 'No mechanism information available';
-    document.getElementById('drug-pharmacodynamics').textContent = targetDrug.pharmacodynamics || 'No pharmacodynamics information available';
-    
-    // Update alternatives section
-    document.getElementById('best-alternative-content').textContent = data.recommendation || 'No recommendation available';
-    
-    // Generate alternative cards
+    document.getElementById('drug-synonyms').textContent =
+        isMissing(targetDrug.synonyms) ? '' : targetDrug.synonyms.split('\n').join(', ');
+    // DrugBank's "description" is missing for half the drugs; "background"
+    // is the longer prose field and is filled more often.
+    document.getElementById('drug-background').textContent =
+        text(targetDrug.background, text(targetDrug.description, 'No background information available'));
+    document.getElementById('drug-indication').textContent =
+        text(targetDrug.indication, 'No indication information available');
+    document.getElementById('drug-category').textContent = isMissing(targetDrug.drug_categories)
+        ? 'No category information available'
+        : targetDrug.drug_categories.split('\n').slice(0, 12).join(' · ');
+    document.getElementById('drug-mechanism').textContent =
+        text(splitMechanism(targetDrug.mechanism).prose, 'No mechanism information available');
+    document.getElementById('drug-pharmacodynamics').textContent =
+        text(targetDrug.pharmacodynamics, 'No pharmacodynamics information available');
+
+    const disclaimer = document.getElementById('disclaimer-text');
+    if (disclaimer) disclaimer.textContent = data.disclaimer || window.MedSphereConfig.disclaimer;
+
+    document.getElementById('best-alternative-content').textContent =
+        data.recommendation || 'No recommendation available';
+
     const alternativesGrid = document.getElementById('alternatives-grid');
     alternativesGrid.innerHTML = '';
-    
-    // Get the top 3 alternatives
-    const topAlternatives = data.similar.slice(0, 3);
-    
-    topAlternatives.forEach(alt => {
+
+    data.similar.slice(0, 3).forEach(alt => {
         const card = document.createElement('div');
         card.className = 'alternative-card ms-panel';
         card.innerHTML = `
             <span class="similarity-percentage ms-badge ms-badge--accent">${Math.round(alt.similarity_percentage)}% Similar</span>
-            <h3 class="card-title">${alt.name}</h3>
-            <p class="card-subtitle">${alt.generic_name}</p>
-            <p class="card-text">${alt.indication || 'No indication information available'}</p>
+            <h3 class="card-title">${esc(alt.name)}${alt.approved ? '' : '<span class="ms-tag-unapproved">not approved</span>'}</h3>
+            <p class="card-subtitle">${esc(alt.generic_name)}</p>
+            <p class="card-text">${esc(text(alt.indication, 'No indication information available'))}</p>
             <button class="show-more-btn ms-btn ms-btn--ghost ms-btn--sm">Show More</button>
             <div class="card-details">
                 <div class="ms-kv">
                     <div class="detail-item ms-kv__item">
                         <div class="detail-label ms-kv__label">Drug ID</div>
-                        <div class="detail-value ms-kv__value">${alt.drug_id}</div>
+                        <div class="detail-value ms-kv__value">${esc(alt.drug_id)}</div>
                     </div>
                     <div class="detail-item ms-kv__item">
                         <div class="detail-label ms-kv__label">Mechanism of Action</div>
-                        <div class="detail-value ms-kv__value">${alt.mechanism || 'No mechanism information available'}</div>
+                        <div class="detail-value ms-kv__value">${esc(text(splitMechanism(alt.mechanism).prose, 'No mechanism information available'))}</div>
                     </div>
                     <div class="detail-item ms-kv__item">
                         <div class="detail-label ms-kv__label">Pharmacodynamics</div>
-                        <div class="detail-value ms-kv__value">${alt.pharmacodynamics || 'No pharmacodynamics information available'}</div>
+                        <div class="detail-value ms-kv__value">${esc(text(alt.pharmacodynamics, 'No pharmacodynamics information available'))}</div>
                     </div>
                 </div>
             </div>
         `;
-        
-        // Add click event for the Show More button
+
         const showMoreBtn = card.querySelector('.show-more-btn');
         const cardDetails = card.querySelector('.card-details');
-        
         showMoreBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (cardDetails.classList.contains('expanded')) {
-                cardDetails.classList.remove('expanded');
-                showMoreBtn.textContent = 'Show More';
-            } else {
-                cardDetails.classList.add('expanded');
-                showMoreBtn.textContent = 'Show Less';
-            }
+            const open = cardDetails.classList.toggle('expanded');
+            showMoreBtn.textContent = open ? 'Show Less' : 'Show More';
         });
-        
+
         alternativesGrid.appendChild(card);
     });
-    
-    // View details button handler
-    if (viewDetailsBtn) {
-        viewDetailsBtn.addEventListener('click', () => {
-            // Navigate to similarity details page
-            window.location.href = `secondpage.html?drug=${encodeURIComponent(currentDrugName)}`;
-        });
-    }
+}
+
+/**
+ * DrugBank's mechanism text ends with a flattened table:
+ *   TARGET ACTIONS ORGANISM
+ *   AProstaglandin G/H synthase 2 inhibitor Humans
+ * The leading A/U is a flag (A = known action, U = unknown), not part of the
+ * name. Returns {prose, targets: [{text, known}]}.
+ */
+function splitMechanism(value) {
+    if (isMissing(value)) return { prose: '', targets: [] };
+    const parts = String(value).split(/\r?\n?TARGET ACTIONS ORGANISM\r?\n?/);
+    const targets = (parts[1] || '').split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 1 && (line[0] === 'A' || line[0] === 'U'))
+        .map(line => ({ text: line.slice(1).trim(), known: line[0] === 'A' }));
+    return { prose: parts[0].trim(), targets };
 }
 
 /**
@@ -363,8 +336,8 @@ function setupDetailsPage() {
     
     if (drugName) {
         currentDrugName = drugName;
-        // Fetch data for this drug
-        fetchDrugData(drugName)
+        // llm=0: this page only lists alternatives, so skip the Gemini call.
+        fetchDrugData(drugName, false, urlParams.get('all') !== '1')
             .then(data => {
                 drugsData = data.similar;
 
@@ -506,9 +479,9 @@ function renderTableView() {
         const similarityPercentage = Math.round(drug.similarity_percentage);
         
         row.innerHTML = `
-            <td>${drug.name}</td>
-            <td>${drug.generic_name}</td>
-            <td class="smiles-cell">${drug.smiles || 'Not Available'}</td>
+            <td>${esc(drug.name)}${drug.approved ? '' : '<span class="ms-tag-unapproved">not approved</span>'}</td>
+            <td>${esc(drug.generic_name)}</td>
+            <td class="smiles-cell">${esc(drug.smiles || 'Not Available')}</td>
             <td>
                 <span class="similarity-badge ${getSimilarityClass(similarityPercentage)}">
                     ${similarityPercentage}%
@@ -516,7 +489,7 @@ function renderTableView() {
             </td>
             <td>
                 <div class="action-buttons">
-                    <button class="action-btn view-structure-btn ms-btn ms-btn--ghost ms-btn--sm" data-smiles="${drug.smiles || ''}">View Structure</button>
+                    <button class="action-btn view-structure-btn ms-btn ms-btn--ghost ms-btn--sm" data-smiles="${esc(drug.smiles || '')}">View Structure</button>
                     <button class="action-btn view-details-btn ms-btn ms-btn--sm">View Details</button>
                 </div>
             </td>
@@ -630,33 +603,20 @@ function showDrugDetails(drug) {
     meterValue.textContent = Math.round(percentValue) + '%';
     
     // Populate drug details
-    drugDetails.innerHTML = `
+    const card = (title, value) => `
         <div class="detail-card">
-            <div class="detail-title">Generic Name</div>
-            <div class="detail-content">${drug.generic_name || 'Not Available'}</div>
-        </div>
-        <div class="detail-card">
-            <div class="detail-title">SMILES</div>
-            <div class="detail-content">${drug.smiles || 'Not Available'}</div>
-        </div>
-        <div class="detail-card">
-            <div class="detail-title">Drug ID</div>
-            <div class="detail-content">${drug.drug_id || 'Not Available'}</div>
-        </div>
-        <div class="detail-card">
-            <div class="detail-title">Mechanism of Action</div>
-            <div class="detail-content">${drug.mechanism || 'Not Available'}</div>
-        </div>
-        <div class="detail-card">
-            <div class="detail-title">Indication</div>
-            <div class="detail-content">${drug.indication || 'Not Available'}</div>
-        </div>
-        <div class="detail-card">
-            <div class="detail-title">Synonyms</div>
-            <div class="detail-content">${drug.synonyms ? drug.synonyms.split('\n').join(', ') : 'Not Available'}</div>
-        </div>
-    `;
-    
+            <div class="detail-title">${esc(title)}</div>
+            <div class="detail-content">${esc(isMissing(value) ? 'Not Available' : value)}</div>
+        </div>`;
+    drugDetails.innerHTML = [
+        card('Generic Name', drug.generic_name),
+        card('SMILES', drug.smiles),
+        card('Drug ID', drug.drug_id),
+        card('Mechanism of Action', splitMechanism(drug.mechanism).prose),
+        card('Indication', drug.indication),
+        card('Synonyms', isMissing(drug.synonyms) ? '' : drug.synonyms.split('\n').join(', '))
+    ].join('');
+
     // Show the modal with animation
     drugModal.classList.add('active');
 }

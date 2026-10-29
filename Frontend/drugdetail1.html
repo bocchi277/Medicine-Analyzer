@@ -202,15 +202,15 @@
                             <span class="info-value ms-kv__value" id="brand-name"></span>
                         </div>
                         <div class="info-item ms-kv__item">
-                            <span class="info-label ms-kv__label">Half-life</span>
-                            <span class="info-value ms-kv__value" id="half-life"></span>
+                            <span class="info-label ms-kv__label">Approval status</span>
+                            <span class="info-value ms-kv__value" id="approval"></span>
                         </div>
                         <div class="info-item ms-kv__item">
                             <span class="info-label ms-kv__label">Protein Binding</span>
                             <span class="info-value ms-kv__value" id="protein-binding"></span>
                         </div>
                         <div class="info-item ms-kv__item">
-                            <span class="info-label ms-kv__label">Routes of Administration</span>
+                            <span class="info-label ms-kv__label">Route of Elimination</span>
                             <span class="info-value ms-kv__value" id="routes"></span>
                         </div>
                         <div class="info-item ms-kv__item">
@@ -323,6 +323,7 @@
                 // anything else is a hard error.
                 if (/not found/i.test(message)) {
                     showNotFound(message);
+                    window.MedSphereConfig.renderSuggestions(searchMessage, error, searchFor);
                 } else {
                     showSearchError(message);
                 }
@@ -387,19 +388,24 @@
             document.getElementById('generic-name').innerHTML = formatData(drugData.generic_name);
             // brand_name is a comma-separated list of brands.
             document.getElementById('brand-name').innerHTML = formatBadges(drugData.brand_name, ',', 'ms-badge');
-            document.getElementById('drug-description').textContent = isMissing(drugData.description)
-                ? 'No description available'
-                : drugData.description;
+            const summary = !isMissing(drugData.description) ? drugData.description
+                : (!isMissing(drugData.background) ? drugData.background : '');
+            document.getElementById('drug-description').textContent =
+                summary || 'No description available';
 
             // Additional info
-            document.getElementById('half-life').innerHTML = formatData(drugData.half_life);
+            // The dataset has no half-life values at all (every row is empty),
+            // so that row is replaced by approval status, which is always set.
+            document.getElementById('approval').innerHTML = formatData(drugData.groups);
             document.getElementById('protein-binding').innerHTML = formatData(drugData.protein_binding);
             document.getElementById('routes').innerHTML = formatData(drugData.routes_of_administration);
+            // The scraped "routes_of_administration" column actually holds
+            // DrugBank's "Route of elimination" text, so it is labelled that way.
             // synonyms is newline-separated.
             document.getElementById('synonyms').innerHTML = formatBadges(drugData.synonyms, '\n', 'ms-chip');
 
             // Tab contents
-            document.getElementById('mechanism-content').innerHTML = formatMechanism(drugData.mechanism || 'Not Available');
+            document.getElementById('mechanism-content').innerHTML = formatMechanism(drugData.mechanism);
             document.getElementById('indication-content').innerHTML = formatData(drugData.indication);
             document.getElementById('pharmacodynamics-content').innerHTML = formatData(drugData.pharmacodynamics);
             document.getElementById('metabolism-content').innerHTML = formatData(drugData.metabolism);
@@ -418,35 +424,36 @@
             }
         }
 
-        // Helper function to format mechanism text
+        // DrugBank's mechanism text ends with a flattened table, one target
+        // per line: "AProstaglandin G/H synthase 2 inhibitor Humans". The
+        // leading A/U is a flag (A = known action, U = unknown).
         function formatMechanism(mechanismText) {
-            if (mechanismText === "Not Available") {
+            if (isMissingValue(mechanismText)) {
                 return '<span class="not-available">Not Available</span>';
             }
-
-            // Split by target actions if present
-            const parts = mechanismText.split('TARGET ACTIONS ORGANISM');
-            let formatted = escapeHtml(parts[0]);
-
-            if (parts.length > 1) {
-                formatted += '<br><br><strong>Target Actions:</strong><br>';
-                const actions = parts[1].split('\r\n').filter(line => line.trim() !== '');
-
-                actions.forEach(action => {
-                    let cleanAction = action.replace(/^[AU]/, '').trim();
-                    const organismMatch = cleanAction.match(/\((.*?)\)$/);
-                    let organism = '';
-                    if (organismMatch) {
-                        organism = ` (${organismMatch[1]})`;
-                        cleanAction = cleanAction.replace(organismMatch[0], '');
-                    }
-
-                    formatted += `• ${escapeHtml(cleanAction)}${escapeHtml(organism)}<br>`;
-                });
+            const parts = String(mechanismText).split(/\r?\n?TARGET ACTIONS ORGANISM\r?\n?/);
+            let formatted = escapeHtml(parts[0].trim());
+            const targets = (parts[1] || '').split(/\r?\n/)
+                .map(line => line.trim())
+                .filter(line => line.length > 1 && (line[0] === 'A' || line[0] === 'U'));
+            if (targets.length) {
+                formatted += '<br><br><strong>Molecular targets:</strong><ul class="ms-targets">' +
+                    targets.map(line => '<li>' + escapeHtml(line.slice(1).trim()) +
+                        (line[0] === 'U' ? ' <span class="ms-target-unknown">(action not confirmed)</span>' : '') +
+                        '</li>').join('') + '</ul>';
             }
-
             return formatted;
         }
+
+        function isMissingValue(value) {
+            return value === undefined || value === null || value === '' || value === 'Not Available';
+        }
+
+        function searchFor(name) {
+            document.getElementById('drug-name-input').value = name;
+            document.getElementById('search-button').click();
+        }
+        window.MedSphereConfig.attachAutocomplete(document.getElementById('drug-name-input'), searchFor);
 
         // Handle Enter key in search input
         document.getElementById('drug-name-input').addEventListener('keypress', function (e) {
