@@ -1,4 +1,7 @@
+from bisect import bisect_left
 from functools import wraps
+import json
+import os
 import threading
 import time
 from flask import Blueprint, request, jsonify
@@ -24,10 +27,34 @@ drug_data = None
 # Lowercase alias -> (drug_id, priority). Covers name, generic name, synonyms
 # and brand names, so lookups are a dict hit rather than a scan of every row.
 alias_index = {}
+# Sorted alias keys, for prefix search (autocomplete, partial names).
+alias_keys = []
+# drug_ids that are approved somewhere and not withdrawn.
+approved_ids = set()
+# drug_id -> number of brand names. A rough popularity signal: paracetamol has
+# hundreds of brands, an obscure research compound has none.
+brand_counts = {}
+
+# Lower number wins when two drugs claim the same alias. CURATED is the
+# hand-written Indian brand list, which must beat DrugBank: "Crocin" is a
+# paracetamol brand in India but a saffron compound in DrugBank.
+CURATED, NAME, GENERIC, SYNONYM, BRAND = 0, 1, 2, 3, 4
+ALIAS_KIND = {CURATED: 'brand', NAME: 'name', GENERIC: 'generic', SYNONYM: 'synonym', BRAND: 'brand'}
+
+# Partial names shorter than this are not guessed. "para" used to resolve to
+# Paraoxon (a pesticide metabolite) because it was the shortest alias starting
+# with "para". Short input now gets a "did you mean" list instead.
+MIN_PARTIAL_LENGTH = 5
+
+BRAND_ALIAS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'brand_aliases_india.json')
+
+DISCLAIMER = ('For information only. Similar drugs are not automatically safe substitutes. '
+              'Ask a doctor or pharmacist before changing any medicine.')
 
 def init_api(index, id_map, position_by_drug_id, data_df):
     """Initialize API resources with preprocessed data."""
     global faiss_index, faiss_id_map, faiss_position_by_drug_id, drug_data, alias_index
+    global alias_keys, approved_ids, brand_counts
 
     faiss_index = index
     faiss_id_map = id_map
@@ -68,29 +95,51 @@ def init_api(index, id_map, position_by_drug_id, data_df):
             return
 
     alias_index = _build_alias_index(drug_data)
+    alias_keys = sorted(alias_index)
+    approved_ids = _approved_drug_ids(drug_data)
+    if 'brand_name' in drug_data.columns:
+        brand_counts = {
+            drug_id: (0 if not isinstance(v, str) or v == 'Not Available' else v.count(',') + 1)
+            for drug_id, v in zip(drug_data.index, drug_data['brand_name'])
+        }
+    logging.info(f"{len(approved_ids)} drugs are approved and not withdrawn.")
 
     logging.info(f"API initialized successfully with {len(drug_data)} entries.")
     logging.info(f"Search alias index built with {len(alias_index)} keys.")
     logging.info(f"Initialized drug_data columns: {drug_data.columns.tolist()}")
 
 
+def _approved_drug_ids(df):
+    """Drugs approved in at least one market and not withdrawn anywhere."""
+    if 'groups' not in df.columns:
+        return set(df.index)
+    groups = df['groups'].fillna('').str.lower()
+    keep = groups.str.contains('approved') & ~groups.str.contains('withdrawn')
+    return set(df.index[keep])
+
+
+def _load_curated_brands():
+    try:
+        with open(BRAND_ALIAS_FILE, encoding='utf-8') as f:
+            return json.load(f).get('brands', {})
+    except FileNotFoundError:
+        logging.warning(f"{BRAND_ALIAS_FILE} not found; Indian brand names will not resolve.")
+        return {}
+
+
 def _build_alias_index(df):
     """
-    Build one lowercase name -> drug_id lookup covering every way a drug can be
-    referred to, with ties resolved by how authoritative the source field is.
+    Build one lowercase name -> (drug_id, priority, original text) lookup that
+    covers every way a drug can be referred to.
 
-    This replaces scanning all 17k rows with str.contains() on every request.
-    Beyond being O(1) instead of O(n), it fixes a correctness bug: the old code
-    OR-ed an exact name match together with a *substring* match against the
-    synonyms blob and then took whichever row happened to come first in the
-    CSV. Searching "Ibuprofen" returned Dexibuprofen, because Dexibuprofen's
-    synonyms contain the substring "ibuprofen" and its row is earlier.
+    When two drugs claim the same alias, the more authoritative source wins:
+    curated brand list, then the drug's own name, generic name, synonyms and
+    DrugBank brand names. Without this, "Ibuprofen" resolved to Dexibuprofen,
+    whose synonyms contain the word and whose row comes first in the CSV.
 
     Multi-value fields use different separators in this dataset: generic_name
     and synonyms are newline-separated, brand_name is comma-separated.
     """
-    # Lower number wins when two drugs claim the same alias.
-    NAME, GENERIC, SYNONYM, BRAND = 1, 2, 3, 4
     sources = [
         ('name', NAME, None),
         ('generic_name', GENERIC, '\n'),
@@ -101,14 +150,15 @@ def _build_alias_index(df):
     index = {}
 
     def add(raw, drug_id, priority):
-        key = raw.strip().lower()
+        text = raw.strip()
+        key = text.lower()
         # Single characters are too ambiguous to be useful, and the placeholder
         # would otherwise map thousands of drugs onto one key.
         if len(key) < 2 or key == 'not available':
             return
         existing = index.get(key)
         if existing is None or priority < existing[1]:
-            index[key] = (drug_id, priority)
+            index[key] = (drug_id, priority, text)
 
     available = [(col, prio, sep) for col, prio, sep in sources if col in df.columns]
     for col, _, _ in sources:
@@ -121,7 +171,7 @@ def _build_alias_index(df):
     for row, drug_id in enumerate(drug_ids):
         for col, priority, separator in available:
             value = columns[col][row]
-            if not value:
+            if not value or not isinstance(value, str):
                 continue
             if separator is None:
                 add(value, drug_id, priority)
@@ -129,7 +179,74 @@ def _build_alias_index(df):
                 for part in value.split(separator):
                     add(part, drug_id, priority)
 
+    # Curated brands point at a drug by its exact name.
+    by_name = {}
+    if 'name' in df.columns:
+        for drug_id, name in zip(drug_ids, columns.get('name', df['name'].tolist())):
+            by_name.setdefault(str(name).strip().lower(), drug_id)
+    for brand, target in _load_curated_brands().items():
+        drug_id = by_name.get(target.strip().lower())
+        if drug_id is None:
+            logging.warning(f"Curated brand '{brand}' points at unknown drug '{target}'; skipped.")
+            continue
+        add(brand.title() if brand.islower() else brand, drug_id, CURATED)
+
     return index
+
+
+def _drug_name(drug_id):
+    try:
+        return str(drug_data.at[drug_id, 'name'])
+    except (KeyError, ValueError):
+        return str(drug_id)
+
+
+def suggest(query, limit=8):
+    """
+    Names that start with (or, failing that, contain) the query.
+
+    Ranked by: exact match, prefix before substring, approved drugs first,
+    popular drugs (many brand names) first, then shorter aliases. One entry
+    per drug. Popularity matters for short input: for "para" the user almost
+    certainly wants Paracetamol, not Paramethadione.
+    """
+    q = (query or '').strip().lower()
+    if len(q) < 2 or not alias_keys:
+        return []
+
+    candidates = []
+    start = bisect_left(alias_keys, q)
+    for key in alias_keys[start:start + 400]:
+        if not key.startswith(q):
+            break
+        candidates.append((0, key))
+    if len(candidates) < limit and len(q) >= 3:
+        candidates += [(1, k) for k in alias_keys if q in k and not k.startswith(q)][:400]
+
+    def rank(item):
+        where, key = item
+        drug_id, priority, _ = alias_index[key]
+        popularity = min(brand_counts.get(drug_id, 0), 50) // 10   # 0..5, coarse on purpose
+        return (key != q, where, drug_id not in approved_ids, -popularity,
+                priority not in (NAME, CURATED), len(key), key)
+
+    results, seen = [], set()
+    for where, key in sorted(candidates, key=rank):
+        drug_id, priority, text = alias_index[key]
+        if drug_id in seen:
+            continue
+        seen.add(drug_id)
+        name = _drug_name(drug_id)
+        results.append({
+            'label': text,
+            'name': name,
+            'drug_id': drug_id,
+            'kind': ALIAS_KIND[priority],
+            'approved': drug_id in approved_ids,
+        })
+        if len(results) >= limit:
+            break
+    return results
 
 
 def check_resources(*required_cols, require_vectors=False):
@@ -180,10 +297,24 @@ _RATE_MAX_ENTRIES = 4096
 
 
 def _client_ip():
-    """Best-effort client address, honouring Render's proxy header."""
+    """
+    The caller's address, taken only from headers a client cannot forge.
+
+    Render sits behind Cloudflare. Cloudflare overwrites CF-Connecting-IP with
+    the address it actually received the connection from, so that header is
+    the trustworthy one. The old code used the *first* X-Forwarded-For entry,
+    which the client writes itself: sending a new fake value per request got
+    around the rate limit. If CF-Connecting-IP is absent, the *last*
+    X-Forwarded-For entry is used, because that one was added by our own proxy.
+    """
+    cf_ip = request.headers.get('CF-Connecting-IP', '').strip()
+    if cf_ip:
+        return cf_ip
     forwarded = request.headers.get('X-Forwarded-For', '')
     if forwarded:
-        return forwarded.split(',')[0].strip()
+        last = forwarded.split(',')[-1].strip()
+        if last:
+            return last
     return request.remote_addr or 'unknown'
 
 
@@ -237,6 +368,7 @@ def prepare_drug_response(drug_row: pd.Series):
 
     # Start with the full dictionary representation of the row
     response = drug_row.to_dict()
+    response['approved'] = drug_row.name in approved_ids
 
     # Exclude internal/embedding columns. No lowercase helper columns exist any
     # more -- search runs off the alias index instead of duplicated columns.
@@ -255,60 +387,55 @@ def prepare_drug_response(drug_row: pd.Series):
 
     return response
 
+def resolve_drug(medicine_name):
+    """
+    Resolve a user-supplied name to a drug_id.
+
+    Returns (drug_id or None, how) where how is 'exact', 'partial' or None.
+
+      1. Exact match (case-insensitive) on any alias.
+      2. For input of MIN_PARTIAL_LENGTH or more characters: the shortest
+         alias that *starts with* the input ("ibupro" -> Ibuprofen). Interior
+         substrings are not used for this, because "para" inside an unrelated
+         name is not what anyone means.
+      3. Otherwise nothing; callers show suggest() results instead.
+    """
+    if not medicine_name or not alias_index:
+        return None, None
+    query = medicine_name.strip().lower()
+    if not query:
+        return None, None
+
+    match = alias_index.get(query)
+    if match is not None:
+        return match[0], 'exact'
+
+    if len(query) >= MIN_PARTIAL_LENGTH:
+        best = None
+        start = bisect_left(alias_keys, query)
+        for key in alias_keys[start:start + 400]:
+            if not key.startswith(query):
+                break
+            drug_id, priority, _ = alias_index[key]
+            candidate = (len(key), priority, key, drug_id)
+            if best is None or candidate < best:
+                best = candidate
+        if best is not None:
+            logging.info(f"resolve_drug: '{medicine_name}' matched by prefix -> {best[3]}")
+            return best[3], 'partial'
+
+    return None, None
+
+
 def find_drug(medicine_name: str):
-    """
-    Resolve a user-supplied name to a single drug record.
-
-    Resolution order:
-      1. Exact match (case-insensitive) against the alias index, which prefers
-         a drug's own name over its generic name, then synonyms, then brands.
-      2. Failing that, a substring search over the same alias keys, preferring
-         the shortest matching alias so "ibupro" lands on "ibuprofen" rather
-         than on some longer unrelated string that happens to contain it.
-
-    Args:
-        medicine_name (str): The name to search for.
-
-    Returns:
-        pd.Series or None: The DataFrame row for the found drug, or None.
-    """
+    """Return the DataFrame row for a name (see resolve_drug), or None."""
     if drug_data is None or drug_data.empty:
         logging.error("find_drug called before drug_data is initialized.")
         return None
-    if not medicine_name:
+
+    drug_id, _ = resolve_drug(medicine_name)
+    if drug_id is None:
         return None
-
-    query = medicine_name.strip().lower()
-    if not query:
-        return None
-
-    match = alias_index.get(query)
-
-    if match is None and len(query) >= 3:
-        # Partial input. Rank candidates by, in order:
-        #   1. whether the alias *starts with* the query -- a prefix match is
-        #      what a user typing a partial name expects. Without this, "para"
-        #      resolved to Cinacalcet via some interior substring rather than
-        #      to Paracetamol.
-        #   2. alias length, so the closest-fitting name wins.
-        #   3. field priority, so a drug's own name beats a brand alias.
-        # Gated at 3 characters: substring-matching one or two letters returns
-        # an essentially arbitrary drug.
-        best = None
-        for alias, (drug_id, priority) in alias_index.items():
-            if query in alias:
-                candidate = (0 if alias.startswith(query) else 1,
-                             len(alias), priority, drug_id)
-                if best is None or candidate < best:
-                    best = candidate
-        if best is not None:
-            match = (best[3], best[2])
-            logging.info(f"find_drug: '{medicine_name}' matched by partial name -> {match[0]}")
-
-    if match is None:
-        return None
-
-    drug_id = match[0]
     try:
         row = drug_data.loc[drug_id]
     except KeyError:
@@ -321,35 +448,74 @@ def find_drug(medicine_name: str):
     return row
 
 
+def not_found_response(medicine_name, noun='Medicine'):
+    """404 body with "did you mean" suggestions the page can show as buttons."""
+    suggestions = suggest(medicine_name, limit=6)
+    message = f"{noun} '{medicine_name}' not found."
+    if suggestions:
+        message += ' Did you mean one of the suggestions below?'
+    else:
+        message += ' Please check the spelling or try a different name.'
+    return jsonify({'error': message, 'suggestions': suggestions}), 404
+
+
+def _flag(name, default):
+    value = request.args.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in ('0', 'false', 'no', 'off')
+
+
+@api_bp.route('/suggest', methods=['GET'])
+@check_resources()
+@rate_limit(max_calls=240, per_seconds=60)
+def suggest_route():
+    """Autocomplete: GET /api/suggest?q=ibu -> {"suggestions": [...]}."""
+    query = (request.args.get('q') or '')[:80]
+    return jsonify({'suggestions': suggest(query)}), 200
+
+
+# How many alternatives the page shows, and how far down the neighbour list to
+# look for them once unapproved drugs are filtered out.
+TOP_N = 10
+SEARCH_DEPTH = 80
+
+
 @api_bp.route('/get_alternative', methods=['GET'])
 # Needs the similarity index; the drug's own vector comes from there too.
 @check_resources(require_vectors=True)
-# This route calls Gemini, so it carries the tightest limit.
+# This route can call Gemini, so it carries the tightest limit.
 @rate_limit(max_calls=12, per_seconds=60)
 def get_alternative_route():
     """
-    API endpoint to find similar drugs and the best alternative.
-    Allows searching by medicine name, generic name, brand name, or synonym.
-    Includes similarity percentage in the response and smiles for the target drug.
+    GET /api/get_alternative?name=Ibuprofen[&approved_only=1][&llm=1]
+
+    Finds the drug, takes its stored vector, returns the nearest drugs by
+    cosine similarity and (if llm=1) asks Gemini to pick the best one.
+
+    approved_only (default on): skip experimental, investigational-only and
+    withdrawn drugs. A patient-facing "alternative" that was never approved,
+    or was withdrawn, is not useful and can be harmful.
+    llm (default on): the details page sets llm=0 because it only needs the
+    list, so it does not spend Gemini quota a second time.
     """
     medicine_name = request.args.get('name')
-    if not medicine_name:
+    if not medicine_name or not medicine_name.strip():
         logging.warning("Missing 'name' parameter in /get_alternative request.")
         return jsonify({'error': 'Please provide a medicine name parameter'}), 400
+    medicine_name = medicine_name.strip()[:120]
+    approved_only = _flag('approved_only', True)
+    use_llm = _flag('llm', True)
 
-    logging.info(f"Received /get_alternative request for: {medicine_name}")
+    logging.info(f"/get_alternative: '{medicine_name}' approved_only={approved_only} llm={use_llm}")
 
     try:
-        # --- Step 1: Find the target drug ---
         target = find_drug(medicine_name)
         if target is None:
-            logging.warning(f"/get_alternative: Medicine not found in dataset: {medicine_name}")
-            return jsonify({'error': f"Medicine '{medicine_name}' not found. Please check the spelling or try a different name."}), 404
+            return not_found_response(medicine_name)
 
-        # --- Step 2: Look up the target's stored embedding and search FAISS ---
-        # The target is by definition a row that was embedded at index build
-        # time, so its vector is already in the index. Reading it back is exact
-        # and avoids loading an embedding model into the web process.
+        # The target was embedded at build time, so its vector is already in
+        # the index. Reading it back avoids loading an embedding model here.
         target_position = faiss_position_by_drug_id.get(target.name)
         if target_position is None:
             logging.error(
@@ -358,135 +524,68 @@ def get_alternative_route():
             )
             return jsonify({'error': 'Internal server error: drug missing from search index.'}), 500
 
-        logging.info(
-            f"/get_alternative: Using stored vector at position {target_position} "
-            f"for: {target.get('name', 'N/A')}"
-        )
         embedding = get_stored_vector(faiss_index, target_position)
         if embedding is None:
             raise ValueError("Failed to read the stored embedding for the query drug.")
 
-        # search_similar returns a list of dicts with 'drug_id' and 'similarity_score'
-        logging.info("Calling search_similar with top_n=10")
-        similar_indices_scores = search_similar(
-            embedding,
-            faiss_index,
-            faiss_id_map,
-            top_n=10,
+        neighbours = search_similar(
+            embedding, faiss_index, faiss_id_map,
+            top_n=SEARCH_DEPTH if approved_only else TOP_N,
             exclude_position=target_position,
         )
 
-        logging.info(f"/get_alternative: search_similar returned {len(similar_indices_scores)} results.")
-        if similar_indices_scores:
-             logging.debug(f"/get_alternative: Top 5 results from search_similar: {similar_indices_scores[:5]}")
-        else:
-             logging.debug("/get_alternative: search_similar returned an empty list.")
+        similar_meds = []
+        skipped = 0
+        for hit in neighbours:
+            drug_id = hit.get('drug_id')
+            if drug_id is None or drug_id == target.name or drug_id not in drug_data.index:
+                continue
+            if approved_only and drug_id not in approved_ids:
+                skipped += 1
+                continue
+            row = drug_data.loc[drug_id]
+            if isinstance(row, pd.DataFrame):
+                row = row.iloc[0]
+            record = prepare_drug_response(row)
+            record['similarity_percentage'] = round(float(hit['similarity_score']) * 100, 2)
+            similar_meds.append(record)
+            if len(similar_meds) >= TOP_N:
+                break
 
-
-        # --- Step 3: Process search results, filter target, retrieve details, add scores ---
-        # Create a dictionary mapping drug_id to its similarity score for easy lookup
-        similar_drugs_with_scores = {
-            res['drug_id']: res['similarity_score']
-            for res in similar_indices_scores
-            # Filter out the target drug itself. Use target.name (which is the index/drug_id)
-            if 'drug_id' in res and res['drug_id'] != target.name
+        target_record = prepare_drug_response(target)
+        body = {
+            'target': target_record,
+            'similar': similar_meds,
+            'filters': {'approved_only': approved_only, 'skipped_unapproved': skipped},
+            'disclaimer': DISCLAIMER,
         }
 
-        similar_drug_ids = list(similar_drugs_with_scores.keys())
+        if not similar_meds:
+            body['recommendation'] = ('No approved drugs close to this one were found in the index.'
+                                      if approved_only else
+                                      'No other similar drugs were found in the index.')
+            return jsonify(body), 200
 
-        logging.info(f"/get_alternative: After filtering target drug (ID: {target.name}), {len(similar_drug_ids)} similar drug IDs remain.")
-        if similar_drug_ids:
-             logging.debug(f"/get_alternative: Filtered similar drug IDs with scores: {similar_drugs_with_scores}")
-
-
-        if not similar_drug_ids:
-             logging.warning(f"/get_alternative: No distinct similar drugs found for {target.get('name', 'N/A')} after filtering.")
-             return jsonify({
-                 'target': prepare_drug_response(target), # Use prepare_drug_response for the target
-                 'similar': [], # Explicitly empty list
-                 'recommendation': 'The search found the target medicine but no other distinct similar drugs in the index within the top results.'
-             }), 200
-
-
-        # Retrieve full data for the similar drugs using their IDs
-        # Use .loc for index-based lookup, ensuring IDs exist in the index
-        existing_similar_drug_ids = [id for id in similar_drug_ids if id in drug_data.index]
-        if len(existing_similar_drug_ids) < len(similar_drug_ids):
-             logging.warning(f"/get_alternative: Some similar drug IDs ({len(similar_drug_ids) - len(existing_similar_drug_ids)}) found by FAISS/mapping were not found in the main drug_data DataFrame index.")
-
-        if not existing_similar_drug_ids:
-             logging.warning("/get_alternative: No valid similar drug IDs found in the main data after filtering and index check.")
-             return jsonify({
-                 'target': prepare_drug_response(target), # Use prepare_drug_response for the target
-                 'similar': [], # Explicitly empty list
-                 'recommendation': 'Similar drugs were identified by the search index, but their details could not be retrieved from the data.'
-             }), 200
-
-        # Retrieve the DataFrame rows for the existing similar drug IDs
-        similar_df = drug_data.loc[existing_similar_drug_ids]
-
-        # Prepare lists for LLM and response
-        similar_meds_details = []
-        similar_meds_summary = []
-
-        # Iterate through the similar_drug_ids (which have corresponding scores)
-        for drug_id in similar_drug_ids:
-            # Ensure the drug_id exists in the retrieved similar_df (it should if it's in existing_similar_drug_ids)
-            if drug_id in similar_df.index:
-                row = similar_df.loc[drug_id] # Get the row using .loc with the drug_id
-                similarity_score = similar_drugs_with_scores[drug_id] # Get the score from the scores dict
-                similarity_percentage = round(float(similarity_score) * 100, 2) # Calculate percentage
-
-                # Prepare full details for LLM (using prepare_drug_response to exclude embedding text etc.)
-                # LLM might benefit from smiles, so let prepare_drug_response handle its inclusion
-                full_details = prepare_drug_response(row)
-                similar_meds_details.append(full_details)
-
-                # Prepare summary details for response (using prepare_drug_response and adding percentage)
-                summary_dict = prepare_drug_response(row)
-                summary_dict['similarity_percentage'] = similarity_percentage
-                # If you want smiles in the similar summary list, uncomment below:
-                # if 'smiles' in row.index and pd.notna(row.loc['smiles']):
-                #      summary_dict['smiles'] = row.loc['smiles']
-                similar_meds_summary.append(summary_dict)
-            else:
-                logging.warning(f"Drug ID {drug_id} found in similar_drug_ids but not in retrieved similar_df. Skipping.")
-
-
-        logging.info(f"/get_alternative: Prepared details and added similarity scores for {len(similar_meds_summary)} similar drugs.")
-
-
-        # --- Step 4: Use LLM to determine the best alternative ---
-        logging.info(f"/get_alternative: Querying LLM for best alternative among {len(similar_meds_details)} options.")
-        # Pass the target drug details and the list of similar drug details to the LLM service
-        # Use prepare_drug_response for the target drug details sent to the LLM
-        target_drug_dict_for_llm = prepare_drug_response(target)
+        if not use_llm:
+            body['recommendation'] = None
+            return jsonify(body), 200
 
         try:
-            recommendation = get_best_alternative_from_llm(target_drug_dict_for_llm, similar_meds_details)
-            logging.info("/get_alternative: LLM call completed.")
+            # The LLM gets the same records the page shows, minus the score.
+            candidates = [{k: v for k, v in d.items() if k != 'similarity_percentage'}
+                          for d in similar_meds]
+            body['recommendation'] = get_best_alternative_from_llm(target_record, candidates)
         except Exception as e:
             logging.error(f"/get_alternative: Error calling LLM service: {e}", exc_info=True)
-            # Return partial result (similar drugs) with an error message in the recommendation field
-            return jsonify({
-                'target': prepare_drug_response(target), # Use prepare_drug_response for the target in the response
-                'similar': similar_meds_summary, # Return the summary list with percentages
-                'recommendation': f'Could not generate a specific recommendation (LLM service error: {type(e).__name__}).'
-            }), 500 # Or 200 with an error message
-
-
-        # --- Step 5: Return the final response ---
-        logging.info("/get_alternative: Returning final response.")
-        return jsonify({
-            'target': prepare_drug_response(target), # Use prepare_drug_response for the target in the response (includes smiles if available)
-            'similar': similar_meds_summary, # Return the summary list with percentages
-            'recommendation': recommendation
-        })
+            # The list is still useful without the AI pick.
+            body['recommendation'] = (f'Could not generate a specific recommendation '
+                                      f'(LLM service error: {type(e).__name__}).')
+        return jsonify(body), 200
 
     except Exception as e:
         logging.error(f"Error in /get_alternative route: {str(e)}", exc_info=True)
-        # Catch any unexpected errors and return a generic 500
         return jsonify({'error': 'Internal server error processing request.'}), 500
+
 
 @api_bp.route('/drug_details', methods=['GET'])
 # No specific columns required other than those needed for lookup (handled by find_drug)
@@ -508,8 +607,8 @@ def get_drug_details_route():
     try:
         drug = find_drug(medicine_name)
         if drug is None:
-             logging.warning(f"/drug_details: Drug not found: {medicine_name}")
-             return jsonify({'error': f"Drug '{medicine_name}' not found."}), 404
+            logging.warning(f"/drug_details: Drug not found: {medicine_name}")
+            return not_found_response(medicine_name, noun='Drug')
 
         # Use prepare_drug_response to format the output (includes smiles if available)
         response_data = prepare_drug_response(drug)
@@ -544,7 +643,10 @@ def compare_medicines_route():
         if drug1 is None or drug2 is None:
             missing_drug = name1 if drug1 is None else name2
             logging.warning(f"/compare_medicines: One or both drugs not found: {name1}, {name2}")
-            return jsonify({'error': f"Medicine '{missing_drug}' not found."}), 404
+            response, status = not_found_response(missing_drug)
+            payload = response.get_json()
+            payload['missing'] = 'name1' if drug1 is None else 'name2'
+            return jsonify(payload), status
 
         # Read both stored vectors out of the index rather than re-embedding.
         # Identical result: they were built from these exact rows and are unit
