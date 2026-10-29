@@ -1,0 +1,27 @@
+# Keeps the free Render instance awake on one specific day (an interview demo
+# on 30 Oct 2026), so the first visitor does not wait for a cold start.
+#
+# Free instances sleep after 15 minutes without traffic. A ping every 10
+# minutes stops that. The cron fields restrict runs to 30 October (UTC); the
+# year check makes sure it does nothing in later years. Delete this file after
+# the demo.
+name: Keep API awake (30 Oct 2026 only)
+
+on:
+  schedule:
+    # Every 10 minutes, 00:00-18:59 UTC on 30 Oct = 05:30-00:29 IST.
+    - cron: '*/10 0-18 30 10 *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /healthz
+        run: |
+          if [ "$(date -u +%Y)" != "2026" ]; then echo "Not 2026; nothing to do."; exit 0; fi
+          curl -fsS --retry 3 --retry-delay 20 --max-time 120 \
+            https://medicine-analyzer-qd2t.onrender.com/healthz
